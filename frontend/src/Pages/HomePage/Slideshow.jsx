@@ -1,5 +1,5 @@
 import React, { useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, useInView } from "framer-motion";
 
 const slides = [
   {
@@ -20,15 +20,21 @@ const slides = [
 ];
 
 const Slideshow = () => {
-  const carouselRef = useRef();
+  const carouselRef = useRef(null);
+  const isInView = useInView(carouselRef, { once: true, margin: "-100px" });
 
   return (
-    <div className="w-full md:w-[1200px] mx-auto overflow-x-auto py-8">
+    <motion.div
+      ref={carouselRef}
+      className="w-full md:w-[1200px] mx-auto overflow-x-auto py-8"
+      initial={{ opacity: 0, y: 50 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}} 
+      transition={{ duration: 1.2, ease: "easeOut" }}
+    >
       <motion.div
-        ref={carouselRef}
         className="flex gap-6 cursor-grab"
         drag="x"
-        dragConstraints={{ left: -1000, right: 0 }} // 
+        dragConstraints={{ left: -1000, right: 0 }} // adjust depending on content width
       >
         {slides.map((slide, index) => (
           <motion.div
@@ -51,7 +57,7 @@ const Slideshow = () => {
           </motion.div>
         ))}
       </motion.div>
-    </div>
+    </motion.div>
   );
 };
 
