@@ -1,14 +1,13 @@
 // App.js
-import React from "react";
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
-import Home from "./Pages/Home";
-
+import Home from "./Pages/HomePage/Home";
 
 function App() {
   return (
-    <Router>
-      <Navbar /> 
+    <Router>        {/* <-- This is required for Link to work */}
+      <Navbar />
       <Routes>
         <Route path="/" element={<Home />} />
       </Routes>
