@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import React, { useRef } from "react";
+import { motion } from "framer-motion";
 
 const slides = [
   {
@@ -20,71 +20,37 @@ const slides = [
 ];
 
 const Slideshow = () => {
-  const [slideIndex, setSlideIndex] = useState(0);
-
-  const nextSlide = () => setSlideIndex((prev) => (prev + 1) % slides.length);
-  const prevSlide = () => setSlideIndex((prev) => (prev - 1 + slides.length) % slides.length);
-  const setCurrentSlide = (index) => setSlideIndex(index);
+  const carouselRef = useRef();
 
   return (
-    <div className="w-full md:w-[1200px] mx-auto relative h-[500px] md:h-[600px]">
-      <AnimatePresence>
-        {slides.map((slide, index) =>
-          index === slideIndex && (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0"
-            >
-              <img
-                src={slide.image}
-                alt={slide.title}
-                className="w-full h-full object-cover rounded-lg shadow-lg"
-              />
-
-              <div className="absolute top-1/2 left-4 -translate-y-1/2 
-               text-white p-6 md:p-10 rounded-lg  flex flex-col 
-               md:flex-row items-center gap-4 md:gap-6 max-w-md md:max-w-xl">
-                
-                {/* Text */}
-                <div>
-                  <h2 className="text-lg md:text-2xl font-bold">{slide.title}</h2>
-                  <p className="text-sm md:text-base mt-2">{slide.description}</p>
-                </div>
-              </div>
-            </motion.div>
-          )
-        )}
-      </AnimatePresence>
-
-      {/* Navigation Buttons */}
-      <button
-        onClick={prevSlide}
-        className="absolute top-1/2 left-2 -translate-y-1/2 text-white bg-black bg-opacity-30 hover:bg-opacity-70 px-4 py-2 rounded-full text-2xl z-10"
+    <div className="w-full md:w-[1200px] mx-auto overflow-x-auto py-8">
+      <motion.div
+        ref={carouselRef}
+        className="flex gap-6 cursor-grab"
+        drag="x"
+        dragConstraints={{ left: -1000, right: 0 }} // 
       >
-        ❮
-      </button>
-      <button
-        onClick={nextSlide}
-        className="absolute top-1/2 right-2 -translate-y-1/2 text-white bg-black bg-opacity-30 hover:bg-opacity-70 px-4 py-2 rounded-full text-2xl z-10"
-      >
-        ❯
-      </button>
-
-      {/* Dots */}
-      <div className="flex justify-center mt-4 space-x-2">
-        {slides.map((_, index) => (
-          <span
+        {slides.map((slide, index) => (
+          <motion.div
             key={index}
-            onClick={() => setCurrentSlide(index)}
-            className={`w-4 h-4 rounded-full cursor-pointer transition-colors duration-300 ${
-              index === slideIndex ? "bg-gray-800" : "bg-gray-400"
-            }`}
-          ></span>
+            className="relative min-w-[300px] md:min-w-[400px] h-[400px] md:h-[500px] rounded-lg shadow-lg overflow-hidden flex-shrink-0"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 300 }}
+          >
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="w-full h-full object-cover"
+            />
+
+            {/* White Text Box */}
+            <div className="absolute top-1/2 left-4 -translate-y-1/2 bg-white bg-opacity-90 p-4 md:p-6 rounded-lg shadow-md max-w-xs">
+              <h2 className="text-lg md:text-xl font-bold text-gray-800">{slide.title}</h2>
+              <p className="text-sm md:text-base text-gray-700 mt-2">{slide.description}</p>
+            </div>
+          </motion.div>
         ))}
-      </div>
+      </motion.div>
     </div>
   );
 };
