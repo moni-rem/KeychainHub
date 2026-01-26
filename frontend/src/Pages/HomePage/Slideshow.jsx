@@ -44,7 +44,7 @@ const Slideshow = () => {
             />
 
             {/* White Text Box */}
-            <div className="absolute top-1/2 left-4 -translate-y-1/2 bg-white bg-opacity-90 p-4 md:p-6 rounded-lg shadow-md max-w-xs">
+            <div className="absolute top-1/2 left-4 -translate-y-1/2 bg-white bg-opacity-10 p-4 md:p-6 rounded-lg shadow-md max-w-xs">
               <h2 className="text-lg md:text-xl font-bold text-gray-800">{slide.title}</h2>
               <p className="text-sm md:text-base text-gray-700 mt-2">{slide.description}</p>
             </div>
