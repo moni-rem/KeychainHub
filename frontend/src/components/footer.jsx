@@ -165,7 +165,7 @@ export default function Footer() {
         transition={{ duration: 0.8, delay: 0.8 }}
       >
         <div className="max-w-[1440px] mx-auto px-4 md:px-8">
-          © 2026 KeychainHub. All rights reserved. Designed with ❤️ by You
+          © 2026 KeychainHub. All rights reserved. 
         </div>
       </motion.div>
     </footer>
