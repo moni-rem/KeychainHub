@@ -86,7 +86,7 @@ Perfect as a thoughtful gift, our keychains are ideal for birthdays, holidays, o
                   <motion.button
                     whileHover={{ scale: 1.05, letterSpacing: "0.05em" }}
                     transition={{ duration: 0.3 }}
-                    className="mt-6 px-6 py-3 bg-green-500 text-white font-semibold rounded-lg w-fit"
+                    className="mt-6 px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg w-fit"
                   >
                     Shop Now
                   </motion.button>
