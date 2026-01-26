@@ -1,5 +1,6 @@
 import { FaShoppingCart } from "react-icons/fa";
 import { CgProfile } from "react-icons/cg";
+import { FaSun } from "react-icons/fa6";
 import React from 'react';
 import { Link } from 'react-router-dom';
 
@@ -8,7 +9,7 @@ export default function Navbar() {
     <div className="flex flex-col md:flex-row justify-between items-center bg-blue-200 text-gray-800 font-sans p-4 md:p-8 shadow-md z-10">
       
       {/* Logo */}
-      <div className="text-2xl font-bold mb-2 md:mb-0">
+      <div className="text-2xl font-bold mb-2 md:mb-0 font-serif  oldstyle-nums">
         <Link to="/">KeychainHub</Link>
       </div>
 
@@ -23,12 +24,15 @@ export default function Navbar() {
       </nav>
 
       {/* Icons */}
-      <div className="flex flex-col md:flex-row gap-4 mt-2 md:mt-0">
+      <div className="flex flex-col md:flex-row gap-8 mt-2 md:mt-0">
         <Link to="/cart" className="flex items-center gap-1 hover:text-blue-800">
           <FaShoppingCart size={20} />
         </Link>
         <Link to="/profile" className="flex items-center gap-1 hover:text-blue-800">
           <CgProfile size={20} />
+        </Link>
+         <Link to="/profile" className="flex items-center gap-1 hover:text-blue-800">
+          <FaSun size={20} />
         </Link>
       </div>
     </div>
