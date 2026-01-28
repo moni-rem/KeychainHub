@@ -2,9 +2,9 @@
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
-import Navbar from "./components/Navbar";
+import Navbar from "./components/common/Navbar";
 import Home from "./Pages/HomePage/Home";
-import ProductPage from "./Pages/HomePage/productPage";
+import ProductPage from "./Pages/HomePage/ProductPage";
 
 // ✅ Admin
 import AdminLogin from "./Pages/admin/AdminLogin";

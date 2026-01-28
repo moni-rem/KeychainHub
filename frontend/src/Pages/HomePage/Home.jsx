@@ -1,11 +1,11 @@
 //import React, { useState} from "react";
 import { motion } from "framer-motion";
 import Slideshow from "./Slideshow";
-import BlogApp from "./blog";
+import BlogApp from "./Blog";
 // import products from "../data/products";
 // import ProductCard from "../components/ProductCard";
 // import AnimatedCard from './Card'; // keep ready for later
-import Footer from "../../components/footer";
+import Footer from "../../components/common/Footer";
 
 const Home = () => {
   //const [cards, setCards] = useState([]);

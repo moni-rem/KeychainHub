@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import mockProducts from "../../data/mockProducts";
+import products from "../../data/products";
+
 import { load, save } from "../../components/admin/storage";
 
 const LS_KEY = "admin_products_v1";
+const products = getProducts().filter(p => p.status === "active");
 
 const emptyForm = {
   id: "",
