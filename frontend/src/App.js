@@ -4,7 +4,12 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Home from "./Pages/HomePage/Home";
-import ProductPage from "./Pages/HomePage/productPage";
+import Products from "./Pages/HomePage/products";
+import ProductDetail from "./Pages/HomePage/ProductDetail";
+import BlogApp from './Pages/HomePage/blog';
+import { CartProvider } from "./context/CartContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import CartPage from './Pages/HomePage/CardPage';
 
 // ✅ Admin
 import AdminLogin from "./Pages/admin/AdminLogin";
@@ -64,5 +69,6 @@ function App() {
     </Router>
   );
 }
+
 
 export default App;

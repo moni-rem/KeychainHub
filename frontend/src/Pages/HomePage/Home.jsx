@@ -2,19 +2,11 @@
 import { motion } from "framer-motion";
 import Slideshow from "./Slideshow";
 import BlogApp from "./blog";
-// import products from "../data/products";
-// import ProductCard from "../components/ProductCard";
-// import AnimatedCard from './Card'; // keep ready for later
 import Footer from "../../components/footer";
+import ProductList from "./ProductList";
+
 
 const Home = () => {
-  //const [cards, setCards] = useState([]);
-
-  // You can fetch or populate cards here
-  // useEffect(() => {
-  //   setCards(fetchedData);
-  // }, []);
-
   return (
     <div className="mt-20 px-4 md:px-16 flex flex-col items-center">
       {/* Hero Section */}
@@ -36,22 +28,10 @@ const Home = () => {
         Discover our exclusive keychains and accessories. Perfect for gifts or
         personal collections.
       </motion.p>
-
       <Slideshow />
-
       <BlogApp/>
-
-        {/* <div className="max-w-7xl mx-auto p-8">
-      <h2 className="text-3xl font-bold mb-6">Our Products</h2>
-
-      <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-6">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </div>
-    </div> */}
-
-    <Footer/>
+      <ProductList/>
+      <Footer/>
     </div>
   );
 };

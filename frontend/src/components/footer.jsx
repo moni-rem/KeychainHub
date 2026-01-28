@@ -11,9 +11,7 @@ export default function Footer() {
 
   return (
     <footer className="bg-blue-400 text-white relative z-10">
-      {/* Main Footer Content */}
       <div className="p-4 md:p-8 shadow-md z-10 md:px-8 py-16 grid md:grid-cols-4 gap-10">
-        {/* Logo / Brand */}
         <motion.div
           className="space-y-4"
           variants={fadeUp}
@@ -62,7 +60,6 @@ export default function Footer() {
           </div>
         </motion.div>
 
-        {/* Quick Links */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -95,7 +92,6 @@ export default function Footer() {
           </ul>
         </motion.div>
 
-        {/* Resources */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -128,7 +124,6 @@ export default function Footer() {
           </ul>
         </motion.div>
 
-        {/* Newsletter */}
         <motion.div
           variants={fadeUp}
           initial="hidden"
@@ -156,7 +151,6 @@ export default function Footer() {
         </motion.div>
       </div>
 
-      {/* Bottom Bar */}
       <motion.div
         className="bg-blue-700 text-gray-300 text-center text-sm py-4"
         initial={{ opacity: 0, y: 20 }}

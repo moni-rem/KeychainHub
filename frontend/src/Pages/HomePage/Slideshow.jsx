@@ -1,19 +1,33 @@
 import React, { useRef } from "react";
 import { motion } from "framer-motion";
+import k1 from "..//../assets/k1.jpg";
+import k2 from "..//../assets/k2.jpg";
+import k3 from "..//../assets/k3.jpg";
+import k4 from "..//../assets/k4.jpg";
+import k5 from "..//../assets/k5.jpg";
 
 const slides = [
   {
-    image: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1000&q=80",
+    image: k1,
     title: "Premium Keychain",
     description: "High-quality handmade keychain to keep your keys stylish.",
   },
   {
-    image: "https://images.unsplash.com/photo-1516117172878-fd2c41f4a759?auto=format&fit=crop&w=1000&q=80",
+    image: k3,
     title: "Stylish Key Holder",
     description: "Modern key holder to organize your keys at home.",
   },
   {
-    image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1000&q=80",
+    image:k2,
+    title: "Leather Key Pouch",
+    description: "Compact leather pouch to carry your keys safely.",
+  },
+    {
+    image:k4,
+    title: "Leather Key Pouch",
+    description: "Compact leather pouch to carry your keys safely.",
+  },  {
+    image:k5,
     title: "Leather Key Pouch",
     description: "Compact leather pouch to carry your keys safely.",
   },
