@@ -1,28 +1,51 @@
+
+import k1 from"../assets/k1.jpg";
+import k2 from"../assets/k2.jpg";
+import k3 from"../assets/k3.jpg";
+import keychain from "../assets/keychain.jpg"
+import k4 from"../assets/k4.jpg";
+import k5 from"../assets/k5.jpg";
+
 const products = [
+ 
+    {
+    id: 1,
+    name: "Premium Keychain",
+    price:"1",
+    image: k1
+  },
   {
-    id: "1",
+    id: 2,
     name: "Leather Keychain",
-    price: "$12",
-    image:
-      "https://images.unsplash.com/photo-1523275335684-37898b6baf30",
-    description: "Premium handmade leather keychain.",
+      price:"1.5",
+    image: k2
   },
-  {
-    id: "2",
-    name: "Metal Keychain",
-    price: "$9",
-    image:
-      "https://images.unsplash.com/photo-1518544887687-8a36b1c5f5ad",
-    description: "Strong and durable metal keychain.",
-  },
-  {
-    id: "3",
-    name: "Custom Keychain",
-    price: "$15",
-    image:
-      "https://images.unsplash.com/photo-1602524205631-2a4a3b3f3c8b",
-    description: "Personalized keychain made for you.",
-  },
+    {
+    id: 3,
+    name: "Leather Keychain",
+      price:"2",
+    image: k3
+  }
+   ,
+    {
+    id: 4,
+    name: "Leather Keychain",
+      price:"2",
+    image: keychain
+  }
+   ,
+    {
+    id: 5,
+    name: "Leather Keychain",
+      price:"3",
+    image: k4
+  } ,
+    {
+    id: 6,
+    name: "Leather Keychain",
+      price:"1",
+    image: k5
+  }
 ];
 
 export default products;

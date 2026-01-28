@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import keychain from "../../assets/keychain.jpg";
+import { useNavigate } from "react-router-dom";
 
 export default function BlogApp() {
   const posts = [
@@ -17,8 +18,10 @@ Perfect as a thoughtful gift, our keychains are ideal for birthdays, holidays, o
     },
   ];
 
+   const navigate = useNavigate();
+   
   return (
-    <div className="min-h-screen bg-white font-sans mt-20">
+    <div className="min-h-screen  font-sans mt-20">
       <main className="max-w-6xl mx-auto px-4 py-20">
         {posts.map((post) => (
           <React.Fragment key={post.id}>
@@ -83,7 +86,9 @@ Perfect as a thoughtful gift, our keychains are ideal for birthdays, holidays, o
                     </p>
                   ))}
 
+                 
                   <motion.button
+                    onClick={() => navigate("/shop")}
                     whileHover={{ scale: 1.05, letterSpacing: "0.05em" }}
                     transition={{ duration: 0.3 }}
                     className="mt-6 px-6 py-3 bg-blue-500 text-white font-semibold rounded-lg w-fit"
