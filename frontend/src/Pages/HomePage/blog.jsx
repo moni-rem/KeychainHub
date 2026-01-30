@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "framer-motion";
-import keychain from "../../assets/keychain.jpg";
+import k6 from "../../assets/k6.jpg";
 import { useNavigate } from "react-router-dom";
 
 export default function BlogApp() {
@@ -22,7 +22,7 @@ Perfect as a thoughtful gift, our keychains are ideal for birthdays, holidays, o
    
   return (
     <div className="min-h-screen  font-sans mt-20">
-      <main className="max-w-6xl mx-auto px-4 py-20">
+      <main className=" w-full max-w-6xl mx-auto px-4 py-20">
         {posts.map((post) => (
           <React.Fragment key={post.id}>
             {/* Title */}
@@ -65,7 +65,7 @@ Perfect as a thoughtful gift, our keychains are ideal for birthdays, holidays, o
                   className="h-64 md:h-full overflow-hidden"
                 >
                   <img
-                    src={keychain}
+                    src={k6}
                     alt={post.title}
                     className="w-full h-full object-cover"
                   />

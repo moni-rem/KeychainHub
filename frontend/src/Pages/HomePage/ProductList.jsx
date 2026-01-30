@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 
 // Temporary data (can be replaced with API fetch later)
 import products from "..//../data/products";
+import { motion } from "framer-motion";
+
 
 export default function ProductList() {
   if (!Array.isArray(products)) {
@@ -12,9 +14,14 @@ export default function ProductList() {
 
   return (
     <div className="max-w-7xl mx-auto mt-20 px-4 mb-16">
-      <h2 className="text-3xl font-bold text-center mb-12">
-        Our Products
-      </h2>
+       <motion.h1
+        className="font-bold text-5xl text-center mb-6"
+        initial={{ opacity: 0, y: 50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1.2, ease: "easeIn" }}
+      >
+        GET THE HIGHLIGHT
+      </motion.h1>
 
       <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {products.map((product) => (

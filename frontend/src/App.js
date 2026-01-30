@@ -3,15 +3,21 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
+
+// Public pages
 import Home from "./Pages/HomePage/Home";
-import Products from "./Pages/HomePage/products";
+import ProductPage from "./Pages/HomePage/ProductPage";
 import ProductDetail from "./Pages/HomePage/ProductDetail";
-import BlogApp from './Pages/HomePage/blog';
+import CartPage from "./Pages/HomePage/CardPage";
+import UserLogin from "./Pages/HomePage/UserLogin";
+
+
+// Context
 import { CartProvider } from "./context/CartContext";
 import { ThemeProvider } from "./context/ThemeContext";
-import CartPage from './Pages/HomePage/CardPage';
+import { UserAuthProvider } from "./context/UserAuthContext";
 
-// ✅ Admin
+// Admin pages
 import AdminLogin from "./Pages/admin/AdminLogin";
 import Dashboard from "./Pages/admin/Dashboard";
 import Products from "./Pages/admin/Products";
@@ -21,54 +27,96 @@ import Settings from "./Pages/admin/Settings";
 
 import AdminLayout from "./components/admin/AdminLayout";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
+import UserProtectedRoute from "./components/UserProtectedRoute";
+
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        {/* ✅ PUBLIC ROUTES (Navbar included) */}
-        <Route
-          path="/"
-          element={
-            <>
-              <Navbar />
-              <Home />
-            </>
-          }
-        />
+    <div className="bg-white dark:bg-gray-900 text-black dark:text-white min-h-screen">
+      <UserAuthProvider>
+        <CartProvider>
+          <ThemeProvider>
+            <Router>
+              <Routes>
 
-        <Route
-          path="/product/:id"
-          element={
-            <>
-              <Navbar />
-              <ProductPage />
-            </>
-          }
-        />
+                {/* 🌍 PUBLIC ROUTES */}
+                <Route
+                  path="/"
+                  element={
+                    <>
+                      <Navbar />
+                      <Home />
+                    </>
+                  }
+                />
 
-        {/* ✅ ADMIN LOGIN (No Navbar) */}
-        <Route path="/admin/login" element={<AdminLogin />} />
+                <Route
+                  path="/shop"
+                  element={
+                    <>
+                      <Navbar />
+                      <ProductPage />
+                    </>
+                  }
+                />
 
-        {/* ✅ ADMIN AREA (No Navbar, protected) */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute>
-              <AdminLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Dashboard />} />
-          <Route path="products" element={<Products />} />
-          <Route path="orders" element={<Orders />} />
-          <Route path="blog" element={<Blog />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </Router>
+                <Route
+                  path="/product/:id"
+                  element={
+                    <>
+                      <Navbar />
+                      <ProductDetail />
+                    </>
+                  }
+                />
+
+                <Route
+                  path="/cart"
+                  element={
+                    <UserProtectedRoute>
+                      <Navbar />
+                      <CartPage />
+                    </UserProtectedRoute>
+                  }
+                />
+
+
+                {/* 👤 USER LOGIN */}
+                <Route
+                  path="/login"
+                  element={
+                    <>
+                      <Navbar />
+                      <UserLogin />
+                    </>
+                  }
+                />
+
+                {/* 🔐 ADMIN LOGIN */}
+                <Route path="/admin/login" element={<AdminLogin />} />
+
+                {/* 🔒 ADMIN AREA */}
+                <Route
+                  path="/admin"
+                  element={
+                    <ProtectedRoute>
+                      <AdminLayout />
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route index element={<Dashboard />} />
+                  <Route path="products" element={<Products />} />
+                  <Route path="orders" element={<Orders />} />
+                  <Route path="blog" element={<Blog />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+
+              </Routes>
+            </Router>
+          </ThemeProvider>
+        </CartProvider>
+      </UserAuthProvider>
+    </div>
   );
 }
-
-
 export default App;
