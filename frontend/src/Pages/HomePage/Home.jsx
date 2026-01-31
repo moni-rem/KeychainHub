@@ -2,9 +2,9 @@
 import { motion } from "framer-motion";
 import Slideshow from "./Slideshow";
 import BlogApp from "./blog";
-import Footer from "../../components/footer";
 import ProductList from "./ProductList";
 
+import FeedbackSection from "./FeedbackSection";
 
 const Home = () => {
   return (
@@ -31,7 +31,7 @@ const Home = () => {
       <Slideshow />
       <BlogApp/>
       <ProductList/>
-      <Footer/>
+      <FeedbackSection/>
     </div>
   );
 };

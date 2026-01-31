@@ -2,7 +2,6 @@
 import { useParams, Link } from "react-router-dom";
 import { useState } from "react";
 import products from "../../data/products";
-import Footer from "../../components/footer";
 import  { useCart } from "../../context/CartContext"
 
 export default function ProductDetail() {
@@ -136,7 +135,6 @@ export default function ProductDetail() {
           ))}
         </div>
       </div>
-      <Footer/>
     </div>
   );
 }

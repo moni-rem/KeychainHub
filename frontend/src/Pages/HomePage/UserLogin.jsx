@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useUserAuth } from "../../context/UserAuthContext";
 import { useState } from "react";
 
@@ -60,6 +60,18 @@ export default function UserLogin() {
             Login
           </button>
         </form>
+
+        {/* Register Button */}
+        <div className="mt-4 text-center">
+          <span className="text-gray-500 dark:text-gray-400 mr-2">Don't have an account?</span>
+          <Link
+            to="/register"
+            className="inline-block py-2 px-4 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors duration-200"
+          >
+            Register
+          </Link>
+        </div>
+
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
           Use <span className="font-mono">user@test.com</span> to login
         </p>
