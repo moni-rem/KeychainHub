@@ -1,37 +1,41 @@
+// src/App.js
 import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
+// Components
 import Navbar from "./components/Navbar";
 import Footer from "./components/footer";
+import UserProtectedRoute from "./components/UserProtectedRoute";
 
 // Pages
 import Home from "./Pages/HomePage/Home";
 import ProductPage from "./Pages/HomePage/ProductPage";
 import ProductDetail from "./Pages/HomePage/ProductDetail";
 import CartPage from "./Pages/HomePage/CardPage";
-import UserLogin from "./Pages/HomePage/UserLogin";
 import OrderPage from "./Pages/HomePage/OrderPage";
+import UserLogin from "./Pages/HomePage/UserLogin";
 
 // Context
 import { CartProvider } from "./context/CartContext";
-import { ThemeProvider } from "./context/ThemeContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { UserAuthProvider } from "./context/UserAuthContext";
+import ReviewPage from "./Pages/HomePage/ReviewPage";
 
-import UserProtectedRoute from "./components/UserProtectedRoute";
+function AppContent() {
+  const { theme } = useTheme(); 
 
-function App() {
   return (
-    <UserAuthProvider>
-      <CartProvider>
-        <ThemeProvider>
+    <div className={`min-h-screen ${theme === "light" ? "bg-white text-black" : "bg-black text-white"}`}>
+      <UserAuthProvider>
+        <CartProvider>
           <Router>
-            {/* Navbar outside Routes so it's always visible */}
             <Navbar />
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<ProductPage />} />
               <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/contact" element={<ReviewPage />} />
 
               {/* Protected Routes */}
               <Route
@@ -54,11 +58,19 @@ function App() {
               {/* Login */}
               <Route path="/login" element={<UserLogin />} />
             </Routes>
-            <Footer/>
+            <Footer />
           </Router>
-        </ThemeProvider>
-      </CartProvider>
-    </UserAuthProvider>
+        </CartProvider>
+      </UserAuthProvider>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }
 
