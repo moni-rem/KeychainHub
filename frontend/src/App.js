@@ -14,6 +14,9 @@ import ProductDetail from "./Pages/HomePage/ProductDetail";
 import CartPage from "./Pages/HomePage/CardPage";
 import OrderPage from "./Pages/HomePage/OrderPage";
 import UserLogin from "./Pages/HomePage/UserLogin";
+import UserRegister from "./Pages/HomePage/UserRegister";
+import OrderSuccess from "./Pages/HomePage/OrderSuccess";
+import Blogpage from "./Pages/HomePage/blogpage";
 
 // Context
 import { CartProvider } from "./context/CartContext";
@@ -36,6 +39,7 @@ function AppContent() {
               <Route path="/shop" element={<ProductPage />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/contact" element={<ReviewPage />} />
+              <Route path="/blog" element={<Blogpage />} />
 
               {/* Protected Routes */}
               <Route
@@ -55,8 +59,13 @@ function AppContent() {
                 }
               />
 
+              <Route path="/order-success/:id" element={<OrderSuccess />} />
+
+
               {/* Login */}
               <Route path="/login" element={<UserLogin />} />
+              <Route path="/Register" element={<UserRegister />} />
+
             </Routes>
             <Footer />
           </Router>

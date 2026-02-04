@@ -1,43 +1,75 @@
-// src/components/ProductList.jsx
-import { Link } from "react-router-dom";
-
-// Temporary data (can be replaced with API fetch later)
-import products from "../../data/products";
-import { motion } from "framer-motion";
+// src/pages/HomePage/ProductList.jsx
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
+import axios from "axios";
 
 export default function ProductList() {
-  if (!Array.isArray(products)) {
-    console.error("Products is NOT an array:", products);
-    return <p className="mt-10 text-center text-red-500">Product data error</p>;
-  }
+  const [products, setProducts] = useState([]);
+
+  const [searchParams] = useSearchParams();
+  const search = (searchParams.get("search") || "").toLowerCase();
+
+  const fetchProducts = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/products");
+      setProducts(res.data); // keep ALL products in state
+    } catch (err) {
+      console.error("Failed to fetch products:", err.response?.status, err.message);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+    const interval = setInterval(fetchProducts, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ✅ Filter by alphabet (search)
+  const filteredProducts = products.filter((p) =>
+    (p.name || "").toLowerCase().includes(search)
+  );
+
+  // ✅ Then show latest 8 from the filtered results
+  const latestFilteredProducts = filteredProducts
+    .slice()
+    .sort((a, b) => (b.id || 0) - (a.id || 0))
+    .slice(0, 8);
 
   return (
     <div className="max-w-7xl mx-auto mt-20 px-4 mb-16">
-      <motion.h1
-        className="font-bold text-5xl text-center mb-6"
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1.2, ease: "easeIn" }}
-      >
-        GET THE HIGHLIGHT
-      </motion.h1>
+      {/* Optional: show search result text */}
+      {search && (
+        <p className="mb-4 text-gray-600">
+          Showing results for: <b>{search}</b> ({latestFilteredProducts.length})
+        </p>
+      )}
 
-      {/* Responsive grid with gap-2 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {products.map((product) => (
-          <Link key={product.id} to={`/product/${product.id}`}>
+        {latestFilteredProducts.map((p) => (
+          <Link key={p._id || p.id} to={`/product/${p._id || p.id}`}>
             <div className="border rounded-lg shadow overflow-hidden cursor-pointer hover:shadow-xl transition">
               <img
-                src={product.image}
-                alt={product.name}
+                src={
+                  p.image?.startsWith("http")
+                    ? p.image
+                    : `http://localhost:5000/uploads/${p.image}`
+                }
+                alt={p.name}
                 className="h-72 w-full object-cover"
               />
               <div className="p-4">
-                <h3 className="text-xl font-semibold">{product.name}</h3>
+                <h3 className="text-xl font-semibold">{p.name}</h3>
               </div>
             </div>
           </Link>
         ))}
+
+        {/* If no result */}
+        {latestFilteredProducts.length === 0 && (
+          <p className="col-span-full text-center text-gray-500 mt-6">
+            No products found.
+          </p>
+        )}
       </div>
     </div>
   );

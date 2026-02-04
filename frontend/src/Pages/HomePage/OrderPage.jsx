@@ -1,54 +1,65 @@
-// Pages/HomePage/OrderPage.jsx
-import { useCart } from "../../context/CartContext";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import axios from "axios";
 
 export default function OrderPage() {
-  const { cartItems, clearCart } = useCart();
-  const navigate = useNavigate();
+  const [productId, setProductId] = useState("");
+  const [price, setPrice] = useState("");
+  const [quantity, setQuantity] = useState(1);
 
-  const total = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const handleOrder = async () => {
+    try {
+      const res = await axios.post("http://localhost:5000/api/orders", {
+        userId: 1, // later replace with logged-in user id
+        items: [
+          {
+            product_id: Number(productId),
+            quantity: Number(quantity),
+            price: Number(price),
+          },
+        ],
+      });
 
-  const handlePlaceOrder = () => {
-    alert("Order placed successfully!");
-    clearCart();
-    navigate("/");
+      alert("Order placed! Order ID: " + res.data.orderId);
+      setProductId("");
+      setPrice("");
+      setQuantity(1);
+    } catch (err) {
+      console.error("Order failed:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Failed to place order");
+    }
   };
 
-  if (cartItems.length === 0) {
-    return (
-      <p className="mt-20 text-center text-xl">No items in your cart to order.</p>
-    );
-  }
-
   return (
-    <div className="max-w-3xl mx-auto mt-24 px-4">
-      <h1 className="text-3xl font-bold mb-8 text-center">Review Your Order</h1>
+    <div className="p-6 space-y-3">
+      <h1 className="text-2xl font-bold">Place an Order</h1>
 
-      <div className="space-y-4">
-        {cartItems.map(item => (
-          <div key={item.id} className="flex justify-between border p-4 rounded shadow">
-            <p>{item.name} x {item.quantity}</p>
-            <p>${(item.price * item.quantity).toFixed(2)}</p>
-          </div>
-        ))}
-      </div>
+      <input
+        type="number"
+        placeholder="Product ID (ex: 1)"
+        value={productId}
+        onChange={(e) => setProductId(e.target.value)}
+        className="border p-2 w-full"
+      />
 
-      <p className="text-right text-xl font-bold mt-4">Total: ${total.toFixed(2)}</p>
+      <input
+        type="number"
+        placeholder="Price (ex: 9.99)"
+        value={price}
+        onChange={(e) => setPrice(e.target.value)}
+        className="border p-2 w-full"
+      />
 
-      <div className="mt-6 flex justify-between">
-        <button
-          onClick={() => navigate("/cart")}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg shadow-md transition"
-        >
-          Back to Cart
-        </button>
-        <button
-          onClick={handlePlaceOrder}
-          className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-md transition"
-        >
-          Place Order
-        </button>
-      </div>
+      <input
+        type="number"
+        min={1}
+        value={quantity}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+        className="border p-2 w-full"
+      />
+
+      <button onClick={handleOrder} className="bg-blue-600 text-white px-4 py-2 rounded">
+        Order
+      </button>
     </div>
   );
 }

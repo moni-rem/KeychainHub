@@ -1,12 +1,29 @@
+// src/components/Sidebar.jsx
 import { NavLink } from "react-router-dom";
 
-export default function AdminSidebar() {
+export default function Sidebar() {
+  const linkClass =
+    "block px-4 py-3 rounded-lg hover:bg-blue-600 hover:text-white transition";
+
   return (
-    <aside className="w-64 bg-gray-200 dark:bg-gray-800 p-6 flex flex-col">
-      <h1 className="text-2xl font-bold mb-6">Admin</h1>
-      <NavLink to="/admin" className={({isActive}) => isActive ? "font-bold mb-2" : "mb-2"}>Dashboard</NavLink>
-      <NavLink to="/admin/products" className={({isActive}) => isActive ? "font-bold mb-2" : "mb-2"}>Products</NavLink>
-      <NavLink to="/admin/products/add" className={({isActive}) => isActive ? "font-bold mb-2" : "mb-2"}>Add Product</NavLink>
+    <aside className="w-64 bg-white shadow-lg">
+      <div className="p-6 text-2xl font-bold text-blue-600">
+        Admin Panel
+      </div>
+
+      <nav className="px-4 space-y-2 text-gray-700">
+        <NavLink to="/admin" className={linkClass}>
+          Dashboard
+        </NavLink>
+
+        <NavLink to="/admin/products" className={linkClass}>
+          Products
+        </NavLink>
+
+        <NavLink to="/admin/users" className={linkClass}>
+          Users
+        </NavLink>
+      </nav>
     </aside>
   );
 }
