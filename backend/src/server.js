@@ -1,23 +1,53 @@
-const express = require("express");
-const app = express();
+const app = require('./app');
+require('dotenv').config();
 
-// Basic middleware
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+const PORT = process.env.PORT || 5000;
 
-// Basic route
-app.get("/", (req, res) => {
-  res.json({ message: "Express.js is working! 🚀" });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong!" });
-});
+// Test database connection on startup
+async function testDatabase() {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    await prisma.$connect();
+    console.log('✅ Database connected successfully');
+    
+    // Count records
+    const userCount = await prisma.user.count();
+    const productCount = await prisma.product.count();
+    
+    console.log(`📊 Database has ${userCount} users and ${productCount} products`);
+    
+    await prisma.$disconnect();
+    return true;
+  } catch (error) {
+    console.error('❌ Database connection failed:', error.message);
+    return false;
+  }
+}
 
 // Start server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+async function startServer() {
+  console.log('🔍 Testing database connection...');
+  const dbConnected = await testDatabase();
+  
+  if (!dbConnected) {
+    console.log('⚠️ Starting server without database connection...');
+  }
+  
+  app.listen(PORT, () => {
+    console.log(`
+🚀 Server running on port ${PORT}
+📁 Environment: ${process.env.NODE_ENV || 'development'}
+🔗 Health check: http://localhost:${PORT}/api/health
+🛍️ Products: http://localhost:${PORT}/api/products
+🔐 Register: POST http://localhost:${PORT}/api/auth/register
+🔐 Login: POST http://localhost:${PORT}/api/auth/login
+    `);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('❌ Failed to start server:', error);
+  process.exit(1);
 });
