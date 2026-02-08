@@ -7,14 +7,12 @@ import { db } from "./config/db.js";
 
 const app = express();
 
-// ✅ MIDDLEWARE FIRST
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:3001"],
   credentials: true,
 }));
 app.use(express.json());
 
-// ✅ ROUTES AFTER MIDDLEWARE
 
 // stats
 app.get("/api/admin/stats", (req, res) => {
@@ -47,7 +45,6 @@ app.get("/api/admin/stats", (req, res) => {
   });
 });
 
-// ✅ analytics (THIS FIXES YOUR 404)
 app.get("/api/admin/analytics", (req, res) => {
   const salesTimelineSql = `
     SELECT DATE(created_at) AS day,
