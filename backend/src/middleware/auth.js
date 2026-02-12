@@ -39,7 +39,7 @@ const auth = async (req, res, next) => {
     // Attach user to request
     req.user = user;
     req.token = token;
-    next();
+    next(); // use next(); for middleware to pass control to the next middleware or route handler
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
       return next(new ApiError(401, "Invalid token. Please log in again."));
