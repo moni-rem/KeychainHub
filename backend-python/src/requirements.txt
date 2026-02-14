@@ -2,6 +2,11 @@ fastapi
 uvicorn
 python-dotenv
 sqlmodel
-pymysql   # or mysql-connector-python — but pymysql is faster/common with SQLAlchemy/SQLModel
-jose
+pymysql
 argon2-cffi
+python-jose[cryptography]
+fastapi-mail
+stripe
+redis
+slowapi
+psycopg2-binary
