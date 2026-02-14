@@ -10,3 +10,4 @@ stripe
 redis
 slowapi
 psycopg2-binary
+email-validator

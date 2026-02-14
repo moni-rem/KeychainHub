@@ -17,3 +17,4 @@ services:
     container_name: keychainhub_redis
     ports:
       - "6379:6379"
+      

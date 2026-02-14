@@ -30,3 +30,11 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+from ..redis_client import redis_client
+
+if redis_client.get(f"blacklist:{token}"):
+    raise credentials_exception
+@router.post("/logout")
+def logout(token: str):
+    redis_client.set(f"blacklist:{token}", "revoked", ex=900)
+    return {"message": "Logged out"}

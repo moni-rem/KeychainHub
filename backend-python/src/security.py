@@ -2,6 +2,11 @@ from datetime import datetime, timedelta
 import secrets
 from jose import jwt
 from argon2 import PasswordHasher
+import hashlib
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
 
 from .config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 
