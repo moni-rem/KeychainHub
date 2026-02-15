@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import secrets, hashlib, random
 from jose import jwt
 from argon2 import PasswordHasher
-from sqlmodel import select
 
 from ..config import SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, REFRESH_TOKEN_EXPIRE_DAYS
 from ..models.refresh_token import RefreshToken

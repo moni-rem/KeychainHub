@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-import secrets
 from jose import jwt
 from argon2 import PasswordHasher
 import hashlib
+
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()

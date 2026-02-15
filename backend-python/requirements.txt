@@ -1,13 +1,1 @@
-fastapi
-uvicorn
-python-dotenv
-sqlmodel
-pymysql
-argon2-cffi
-python-jose[cryptography]
-fastapi-mail
-stripe
-redis
-slowapi
-psycopg2-binary
-email-validator
+redis==7.1.1
