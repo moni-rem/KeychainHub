@@ -5,7 +5,20 @@ const ApiResponse = require("../utils/apiResponse");
 const Helpers = require("../utils/helpers");
 const constants = require("../config/constants");
 
+// AdminController handles all admin-related operations
+// Workflow:
+// 1. Validate input parameters
+// 2. Call appropriate service for business logic
+// 3. Handle errors with appropriate status codes
+// 4. Return consistent response format with status and data/message
 class AdminController {
+  // Get dashboard statistics for admin overview
+  // Workflow:
+  // 1. Extract timeRange from query params (default: "month")
+  // 2. Fetch data from multiple services in parallel
+  // 3. Calculate derived metrics (growth rate)
+  // 4. Structure dashboard data
+  // 5. Return success response with dashboard data
   getDashboardStats = Helpers.asyncHandler(async (req, res) => {
     const { timeRange = "month" } = req.query;
 
@@ -59,6 +72,12 @@ class AdminController {
     response.send(res);
   });
 
+  // Get sales analytics for a date range
+  // Workflow:
+  // 1. Extract startDate and endDate from query params
+  // 2. Validate required parameters
+  // 3. Call orderService to get analytics data
+  // 4. Return success response with analytics data
   getSalesAnalytics = Helpers.asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.query;
 
@@ -78,6 +97,11 @@ class AdminController {
     response.send(res);
   });
 
+  // Update order status
+  // Workflow:
+  // 1. Extract order ID from params and status from body
+  // 2. Call orderService to update the order status
+  // 3. Return success response with updated order
   updateOrderStatus = Helpers.asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -88,6 +112,11 @@ class AdminController {
     response.send(res);
   });
 
+  // Get all orders with optional filtering
+  // Workflow:
+  // 1. Extract query parameters for filtering
+  // 2. Call orderService to get orders
+  // 3. Return success response with orders data
   getAllOrders = Helpers.asyncHandler(async (req, res) => {
     const result = await orderService.getAllOrders(req.query);
 
@@ -95,6 +124,11 @@ class AdminController {
     response.send(res);
   });
 
+  // Get all users with optional filtering
+  // Workflow:
+  // 1. Extract query parameters for filtering
+  // 2. Call userService to get users
+  // 3. Return success response with users data
   getAllUsers = Helpers.asyncHandler(async (req, res) => {
     const result = await userService.getUsers(req.query);
 
@@ -102,6 +136,11 @@ class AdminController {
     response.send(res);
   });
 
+  // Get all products with optional filtering
+  // Workflow:
+  // 1. Extract query parameters for filtering
+  // 2. Call productService to get products
+  // 3. Return success response with products data
   getAllProducts = Helpers.asyncHandler(async (req, res) => {
     const result = await productService.getProducts(req.query);
 
@@ -109,6 +148,12 @@ class AdminController {
     response.send(res);
   });
 
+  // Get system statistics for admin monitoring
+  // Workflow:
+  // 1. Fetch data from multiple services in parallel
+  // 2. Calculate system performance metrics
+  // 3. Structure system statistics data
+  // 4. Return success response with system stats
   getSystemStats = Helpers.asyncHandler(async (req, res) => {
     const [
       totalOrders,
@@ -155,6 +200,13 @@ class AdminController {
   });
 
   // Admin-only product operations
+  // Bulk update products
+  // Workflow:
+  // 1. Extract updates array from request body
+  // 2. Validate that updates is an array
+  // 3. Process each update individually
+  // 4. Track success/failure for each update
+  // 5. Return success response with results
   bulkUpdateProducts = Helpers.asyncHandler(async (req, res) => {
     const { updates } = req.body;
 
@@ -184,6 +236,12 @@ class AdminController {
   });
 
   // Admin-only user operations
+  // Send bulk email to users
+  // Workflow:
+  // 1. Extract subject, message, and userIds from request body
+  // 2. Validate required parameters
+  // 3. Simulate email sending (in production, would integrate with email service)
+  // 4. Return success response with email details
   sendBulkEmail = Helpers.asyncHandler(async (req, res) => {
     const { subject, message, userIds } = req.body;
 
@@ -206,6 +264,13 @@ class AdminController {
   });
 
   // Export data
+  // Export data in different formats
+  // Workflow:
+  // 1. Extract export type and format from query params
+  // 2. Fetch data based on export type
+  // 3. Format data according to requested format (JSON or CSV)
+  // 4. Set appropriate headers for file download
+  // 5. Return formatted data
   exportData = Helpers.asyncHandler(async (req, res) => {
     const { type, format = "json" } = req.query;
 

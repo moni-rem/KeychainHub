@@ -1,53 +1,40 @@
-const app = require('./app');
-require('dotenv').config();
+const app = require("./app");
+require("dotenv").config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
-// Test database connection on startup
-async function testDatabase() {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
-    await prisma.$connect();
-    console.log('✅ Database connected successfully');
-    
-    // Count records
-    const userCount = await prisma.user.count();
-    const productCount = await prisma.product.count();
-    
-    console.log(`📊 Database has ${userCount} users and ${productCount} products`);
-    
-    await prisma.$disconnect();
-    return true;
-  } catch (error) {
-    console.error('❌ Database connection failed:', error.message);
-    return false;
-  }
-}
+//  await connectDB();
+const server = app.listen(process.env.PORT || 5001, "0.0.0.0", () => {
+  console.log(`Server is running on http://localhost:${PORT}`); // ${PORT} is template string
+});
 
-// Start server
-async function startServer() {
-  console.log('🔍 Testing database connection...');
-  const dbConnected = await testDatabase();
-  
-  if (!dbConnected) {
-    console.log('⚠️ Starting server without database connection...');
-  }
-  
-  app.listen(PORT, () => {
-    console.log(`
-🚀 Server running on port ${PORT}
-📁 Environment: ${process.env.NODE_ENV || 'development'}
-🔗 Health check: http://localhost:${PORT}/api/health
-🛍️ Products: http://localhost:${PORT}/api/products
-🔐 Register: POST http://localhost:${PORT}/api/auth/register
-🔐 Login: POST http://localhost:${PORT}/api/auth/login
-    `);
+// Handle unhandled promise rejections (e.g., database connection errors)
+// so in this part, if there is unhandled rejection, it will log the error and close the server and disconnect from database
+process.on("unhandledRejection", (err) => {
+  console.error("Unhandled Rejection:", err);
+  server.close(async () => {
+    const { disconnectDB } = require("./config/db.js");
+    await disconnectDB();
+    process.exit(1);
   });
-}
+});
 
-startServer().catch((error) => {
-  console.error('❌ Failed to start server:', error);
+// Handle uncaught exceptions
+// so this part will catch any uncaught exceptions in the application, log the error, disconnect from the database, and exit the process
+process.on("uncaughtException", async (err) => {
+  console.error("Uncaught Exception:", err);
+  const { disconnectDB } = require("./config/db.js");
+  await disconnectDB();
   process.exit(1);
+});
+
+// Graceful shutdown on SIGTERM and SIGINT
+// this part will handle graceful shutdown when the application receives a SIGTERM or SIGINT signal
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received. Shutting down gracefully...");
+  server.close(async () => {
+    const { disconnectDB } = require("./config/db.js");
+    await disconnectDB();
+    process.exit(0);
+  });
 });

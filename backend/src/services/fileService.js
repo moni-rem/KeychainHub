@@ -4,6 +4,8 @@ const env = require("../config/env");
 const ApiError = require("../utils/apiError");
 const logger = require("../utils/logger");
 
+// this file fileService is responsible for handling all file-related operations, such as uploading, deleting, and validating files. It provides a centralized way to manage files in the application, ensuring that they are stored securely and efficiently. The service includes methods for uploading images, deleting files, validating file types and sizes, and retrieving file information. It also handles errors gracefully and logs important events for monitoring purposes.
+
 class FileService {
   async uploadImage(file, type = "product") {
     try {

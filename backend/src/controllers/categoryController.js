@@ -3,7 +3,17 @@ const productService = require("../services/productService");
 const ApiResponse = require("../utils/apiResponse");
 const Helpers = require("../utils/helpers");
 
+// CategoryController handles all category-related operations
+// Workflow:
+// 1. Validate input parameters
+// 2. Call appropriate service for business logic
+// 3. Handle errors with appropriate status codes
+// 4. Return consistent response format with status and data/message
 class CategoryController {
+  // Get all available categories
+  // Workflow:
+  // 1. Call productService to get all categories
+  // 2. Return success response with categories data
   getCategories = Helpers.asyncHandler(async (req, res) => {
     const categories = await productService.getCategories();
 
@@ -13,6 +23,13 @@ class CategoryController {
     response.send(res);
   });
 
+  // Get products belonging to a specific category
+  // Workflow:
+  // 1. Extract category from params and pagination options from query
+  // 2. Validate category against allowed categories
+  // 3. Build query object with filters
+  // 4. Call productService to get products
+  // 5. Return success response with products data
   getCategoryProducts = Helpers.asyncHandler(async (req, res) => {
     const { category } = req.params;
     const {
@@ -45,6 +62,12 @@ class CategoryController {
     response.send(res);
   });
 
+  // Get statistics for all categories
+  // Workflow:
+  // 1. Get all available categories
+  // 2. For each category, get product count
+  // 3. Sort categories by product count
+  // 4. Return success response with category statistics
   getCategoryStats = Helpers.asyncHandler(async (req, res) => {
     const categories = constants.CATEGORIES;
     const stats = [];
@@ -71,6 +94,12 @@ class CategoryController {
     response.send(res);
   });
 
+  // Validate if a category is allowed
+  // Workflow:
+  // 1. Extract category from request body
+  // 2. Validate category is provided
+  // 3. Check if category exists in allowed categories
+  // 4. Return success response with validation result
   validateCategory = Helpers.asyncHandler(async (req, res) => {
     const { category } = req.body;
 
