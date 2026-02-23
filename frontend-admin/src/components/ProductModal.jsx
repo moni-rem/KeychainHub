@@ -1,30 +1,36 @@
 import { useEffect, useState } from "react";
 
-export default function ProductModal({
-  isOpen,
-  onClose,
-  onSubmit,
-  initialData = null,
-}) {
+export default function ProductModal({ isOpen, onClose, onSubmit, initialData = null }) {
   const [form, setForm] = useState({
     name: "",
     price: "",
     stock: "",
-    image: "",
     description: "",
+    category: "",
+    isFeatured: false,
+    images: null, // ✅ FileList
   });
 
-  // ✅ Prefill when editing / reset when adding
   useEffect(() => {
     if (initialData) {
-      setForm(initialData);
+      setForm({
+        name: initialData?.name || "",
+        price: initialData?.price ?? "",
+        stock: initialData?.stock ?? "",
+        description: initialData?.description || "",
+        category: initialData?.category || "",
+        isFeatured: !!initialData?.isFeatured,
+        images: null,
+      });
     } else {
       setForm({
         name: "",
         price: "",
         stock: "",
-        image: "",
         description: "",
+        category: "",
+        isFeatured: false,
+        images: null,
       });
     }
   }, [initialData]);
@@ -32,13 +38,26 @@ export default function ProductModal({
   if (!isOpen) return null;
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value, type, checked, files } = e.target;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : type === "file" ? files : value,
+    }));
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(form);
-    onClose();
+
+    // ✅ IMPORTANT: description must be >= 10 chars to pass your validator
+    onSubmit({
+      ...form,
+      price: Number(form.price),
+      stock: parseInt(form.stock, 10),
+    });
+
+    // Don't auto-close if server fails; let Products.jsx close on success
+    // onClose();
   };
 
   return (
@@ -58,41 +77,65 @@ export default function ProductModal({
             required
           />
 
-          <input
-            type="number"
-            name="price"
-            value={form.price}
-            onChange={handleChange}
-            placeholder="Price"
-            className="w-full border rounded-lg px-4 py-2"
-            required
-          />
-
-          <input
-            type="number"
-            name="stock"
-            value={form.stock}
-            onChange={handleChange}
-            placeholder="Stock"
-            className="w-full border rounded-lg px-4 py-2"
-            required
-          />
-
-          <input
-            name="image"
-            value={form.image}
-            onChange={handleChange}
-            placeholder="Image URL"
-            className="w-full border rounded-lg px-4 py-2"
-          />
-
           <textarea
             name="description"
             value={form.description}
             onChange={handleChange}
-            placeholder="Description"
+            placeholder="Description (min 10 chars)"
             className="w-full border rounded-lg px-4 py-2 h-24"
+            required
           />
+
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              step="0.01"
+              name="price"
+              value={form.price}
+              onChange={handleChange}
+              placeholder="Price"
+              className="w-full border rounded-lg px-4 py-2"
+              required
+            />
+
+            <input
+              type="number"
+              name="stock"
+              value={form.stock}
+              onChange={handleChange}
+              placeholder="Stock"
+              className="w-full border rounded-lg px-4 py-2"
+              required
+            />
+          </div>
+
+          <input
+            name="category"
+            value={form.category}
+            onChange={handleChange}
+            placeholder="Category (must match backend list)"
+            className="w-full border rounded-lg px-4 py-2"
+          />
+
+          <label className="block text-sm font-medium">Product Images</label>
+          <input
+            type="file"
+            name="images"
+            accept="image/*"
+            multiple
+            onChange={handleChange}
+            className="w-full border rounded-lg px-4 py-2"
+          />
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="isFeatured"
+              checked={form.isFeatured}
+              onChange={handleChange}
+            />
+            Featured
+          </label>
 
           <div className="flex justify-end gap-3">
             <button

@@ -12,15 +12,15 @@ export default function Sidebar() {
       </div>
 
       <nav className="px-4 space-y-2 text-gray-700">
-        <NavLink to="/admin" className={linkClass}>
+        <NavLink to="/dashboard" className={linkClass}>
           Dashboard
         </NavLink>
 
-        <NavLink to="/admin/products" className={linkClass}>
+        <NavLink to="/products" className={linkClass}>
           Products
         </NavLink>
 
-        <NavLink to="/admin/users" className={linkClass}>
+        <NavLink to="/users" className={linkClass}>
           Users
         </NavLink>
       </nav>

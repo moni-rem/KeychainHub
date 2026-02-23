@@ -2,11 +2,15 @@ import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash, FaUserPlus } from "react-icons/fa";
+import { useUserAuth } from "../../context/UserAuthContext";
+
+const API_BASE = "http://localhost:5000";
 
 export default function UserRegister() {
   const navigate = useNavigate();
+  const { login } = useUserAuth();
 
-  const [name, setName] = useState("");          // ✅ NEW
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -17,9 +21,7 @@ export default function UserRegister() {
   const [error, setError] = useState("");
 
   const validate = () => {
-    if (!name || !email || !password || !confirm) {
-      return "Please fill in all fields.";
-    }
+    if (!name || !email || !password || !confirm) return "Please fill in all fields.";
     if (name.length < 2) return "Name must be at least 2 characters.";
     if (!email.includes("@")) return "Please enter a valid email.";
     if (password.length < 6) return "Password must be at least 6 characters.";
@@ -37,18 +39,35 @@ export default function UserRegister() {
     try {
       setLoading(true);
 
-      await axios.post("http://localhost:5000/api/users/register", {
-        name,          // ✅ SEND NAME
-        email,
-        password,
-      });
+      // ✅ Correct register endpoint
+      await axios.post(
+        `${API_BASE}/api/auth/register`,
+        { name, email, password },
+        { withCredentials: true }
+      );
 
-      navigate("/login");
+      // ✅ Auto-login after register (so user doesn't need to login again)
+      const resLogin = await axios.post(
+        `${API_BASE}/api/auth/login`,
+        { email, password },
+        { withCredentials: true }
+      );
+
+      const token = resLogin.data?.data?.token;
+      const user = resLogin.data?.data?.user;
+
+      if (token && user) {
+        login({ user, token }); // uses your updated context
+        navigate("/", { replace: true });
+      } else {
+        // fallback: go to login page
+        navigate("/login");
+      }
     } catch (err) {
       setError(
         err?.response?.data?.message ||
-        err?.response?.data?.sqlMessage ||
-        "Register failed"
+          err?.response?.data?.sqlMessage ||
+          "Register failed"
       );
     } finally {
       setLoading(false);
@@ -58,7 +77,6 @@ export default function UserRegister() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-900 px-4">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-2xl shadow-xl border overflow-hidden">
-        
         {/* Header */}
         <div className="p-6 bg-gradient-to-r from-blue-600 to-indigo-600 text-white">
           <div className="flex items-center gap-3">
@@ -80,7 +98,7 @@ export default function UserRegister() {
             </div>
           )}
 
-          {/* ✅ Name */}
+          {/* Name */}
           <div>
             <label className="block text-sm font-medium mb-1">Full Name</label>
             <input

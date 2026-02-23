@@ -1,76 +1,84 @@
-// src/pages/HomePage/ProductList.jsx
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import axios from "axios";
 
-export default function ProductList() {
+const API = "http://localhost:5000";
+
+export default function ProductList({ limit = 8, title = "Latest Products" }) {
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [searchParams] = useSearchParams();
-  const search = (searchParams.get("search") || "").toLowerCase();
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-  const fetchProducts = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/products");
-      setProducts(res.data); // keep ALL products in state
+      const res = await axios.get(`${API}/api/products`, { params: { limit } });
+
+      const list = res?.data?.data?.data || [];
+      const finalList = Array.isArray(list) ? list.slice(0, limit) : [];
+
+      setProducts(finalList);
     } catch (err) {
-      console.error("Failed to fetch products:", err.response?.status, err.message);
+      console.log(" Fetch products error:", err);
+      setError(err?.response?.data?.message || err.message || "Network error");
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [limit]);
 
   useEffect(() => {
     fetchProducts();
-    const interval = setInterval(fetchProducts, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchProducts]);
 
-  // ✅ Filter by alphabet (search)
-  const filteredProducts = products.filter((p) =>
-    (p.name || "").toLowerCase().includes(search)
-  );
-
-  // ✅ Then show latest 8 from the filtered results
-  const latestFilteredProducts = filteredProducts
-    .slice()
-    .sort((a, b) => (b.id || 0) - (a.id || 0))
-    .slice(0, 8);
+  if (loading) return <div className="p-4">Loading products...</div>;
+  if (error) return <div className="p-4 text-red-500">{error}</div>;
 
   return (
-    <div className="max-w-7xl mx-auto mt-20 px-4 mb-16">
-      {/* Optional: show search result text */}
-      {search && (
-        <p className="mb-4 text-gray-600">
-          Showing results for: <b>{search}</b> ({latestFilteredProducts.length})
-        </p>
-      )}
+    <div className="p-6">
+      <div className="flex items-end justify-between mb-4">
+        <h2 className="text-xl font-semibold">{title}</h2>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {latestFilteredProducts.map((p) => (
-          <Link key={p._id || p.id} to={`/product/${p._id || p.id}`}>
-            <div className="border rounded-lg shadow overflow-hidden cursor-pointer hover:shadow-xl transition">
-              <img
-                src={
-                  p.image?.startsWith("http")
-                    ? p.image
-                    : `http://localhost:5000/uploads/${p.image}`
-                }
-                alt={p.name}
-                className="h-72 w-full object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-xl font-semibold">{p.name}</h3>
-              </div>
-            </div>
-          </Link>
-        ))}
-
-        {/* If no result */}
-        {latestFilteredProducts.length === 0 && (
-          <p className="col-span-full text-center text-gray-500 mt-6">
-            No products found.
-          </p>
-        )}
+        <Link to="/shop" className="text-sm opacity-70 hover:opacity-100">
+          View all →
+        </Link>
       </div>
+
+      {products.length === 0 ? (
+        <div className="opacity-70">No products found.</div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {products.map((p) => {
+            const img = p.images?.[0] ? `${API}${p.images[0]}` : "/no-image.png";
+
+            return (
+              <Link
+                key={p.id}
+                to={`/product/${p.id}`}
+                className="rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:shadow-lg transition"
+              >
+                <img
+                  src={img}
+                  alt={p.name}
+                  className="w-full h-40 object-cover"
+                  onError={(e) => {
+                    e.currentTarget.src = "/no-image.png";
+                  }}
+                />
+
+                <div className="p-3">
+                  <div className="font-semibold line-clamp-1">{p.name}</div>
+                  <div className="text-sm opacity-70 mt-1">
+                    ${Number(p.price).toFixed(2)}
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

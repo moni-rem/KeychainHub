@@ -1,6 +1,9 @@
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useUserAuth } from "../../context/UserAuthContext";
 import { useState } from "react";
+import axios from "axios";
+
+const API_BASE = "http://localhost:5000";
 
 export default function UserLogin() {
   const { login } = useUserAuth();
@@ -9,13 +12,47 @@ export default function UserLogin() {
   const from = location.state?.from || "/";
 
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState(""); // placeholder if you add real auth later
+  const [password, setPassword] = useState("");
 
-  const handleLogin = (e) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
     e.preventDefault();
-    // Currently dummy login
-    login({ email });
-    navigate(from, { replace: true });
+    setLoading(true);
+
+    try {
+      const res = await axios.post(
+        `${API_BASE}/api/auth/login`,
+        { email, password },
+        { withCredentials: true }
+      );
+
+      // Your backend response shape:
+      // { success: true, data: { user: ..., token: ... } }
+      const token = res.data?.data?.token;
+      const user = res.data?.data?.user;
+
+      if (!token || !user) {
+        console.log("Login response:", res.data);
+        alert("Login failed: token/user missing in response.");
+        return;
+      }
+
+      // ✅ save for checkout Authorization header
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
+
+      // ✅ update your auth context
+     login({ user, token });
+
+
+      navigate(from, { replace: true });
+    } catch (err) {
+      console.error("Login failed:", err.response?.data || err.message);
+      alert(err.response?.data?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,6 +61,7 @@ export default function UserLogin() {
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6 text-center">
           User Login
         </h2>
+
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="block text-gray-700 dark:text-gray-200 mb-1" htmlFor="email">
@@ -39,6 +77,7 @@ export default function UserLogin() {
               required
             />
           </div>
+
           <div>
             <label className="block text-gray-700 dark:text-gray-200 mb-1" htmlFor="password">
               Password
@@ -53,11 +92,15 @@ export default function UserLogin() {
               required
             />
           </div>
+
           <button
             type="submit"
-            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors duration-200"
+            disabled={loading}
+            className={`w-full py-2 px-4 text-white font-semibold rounded-lg transition-colors duration-200 ${
+              loading ? "bg-gray-400" : "bg-blue-600 hover:bg-blue-700"
+            }`}
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
@@ -73,7 +116,7 @@ export default function UserLogin() {
         </div>
 
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-4 text-center">
-          Use <span className="font-mono">user@test.com</span> to login
+          Use <span className="font-mono">user@test.com</span> (must exist in DB) to login
         </p>
       </div>
     </div>

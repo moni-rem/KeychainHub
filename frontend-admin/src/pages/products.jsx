@@ -9,18 +9,24 @@ export default function Products() {
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
 
-  const filteredProducts = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+ const filteredProducts = (Array.isArray(products) ? products : []).filter((p) =>
+  (p?.name ?? "").toLowerCase().includes(search.toLowerCase())
+);
 
-  const fetchProducts = async () => {
-    try {
-      const res = await api.get("/products");
-      setProducts(res.data);
-    } catch (err) {
-      console.error("Failed to fetch products:", err);
-    }
-  };
+
+const fetchProducts = async () => {
+  try {
+    const res = await api.get("/products"); // ✅ working route
+    const list = res?.data?.data?.data || [];
+    setProducts(Array.isArray(list) ? list : []);
+  } catch (err) {
+    console.error("Failed to fetch products:", err);
+    setProducts([]);
+  }
+};
+
+
+  
 
   useEffect(() => {
     fetchProducts();
@@ -28,22 +34,51 @@ export default function Products() {
     return () => clearInterval(interval);
   }, []);
 
- const handleSubmit = async (data) => {
+const handleSubmit = async (data) => {
   try {
-    if (editing) {
-      // Update existing product
-      await api.put(`/products/${editing.id}`, data);
-    } else {
-      // Add new product
-      await api.post("/products", data);
+    // ✅ build multipart/form-data
+    const fd = new FormData();
+    fd.append("name", data.name || "");
+    fd.append("description", data.description || "");
+    fd.append("price", String(data.price ?? ""));
+    fd.append("stock", String(data.stock ?? ""));
+    if (data.category) fd.append("category", data.category);
+    fd.append("isFeatured", String(!!data.isFeatured));
+
+    // ✅ support file upload (if exists)
+    if (data.images && data.images.length) {
+      for (const file of data.images) {
+        fd.append("images", file);
+      }
     }
-    setOpen(false);        // close modal
-    setEditing(null);      // clear editing
-    fetchProducts();       // refresh list
+
+    if (editing) {
+      await api.put(`/products/${editing.id}`, fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } else {
+      await api.post("/products", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    }
+
+    setOpen(false);
+    setEditing(null);
+    fetchProducts();
   } catch (err) {
     console.error("Save failed:", err);
+
+    // ✅ print exact backend validation errors
+    console.log("Server response:", err?.response?.data);
+
+    alert(
+      err?.response?.data?.data?.errors?.map((e) => `${e.field}: ${e.message}`).join("\n") ||
+      err?.response?.data?.message ||
+      "Save failed"
+    );
   }
 };
+
 
 
  const handleDelete = async (id) => {

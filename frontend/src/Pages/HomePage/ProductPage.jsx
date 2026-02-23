@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import axios from "axios";
 
+const API_BASE = "http://localhost:5000";
+
 export default function ProductPage() {
   const [products, setProducts] = useState([]);
+  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // URL query: /shop?search=abc
+  // URL query
   const [searchParams] = useSearchParams();
   const search = (searchParams.get("search") || "").toLowerCase().trim();
 
@@ -15,26 +19,30 @@ export default function ProductPage() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const res = await axios.get("http://localhost:5000/api/products");
-        const updated = res.data.map((p) => ({
-          ...p,
-          image: p.image?.startsWith("http")
-            ? p.image
-            : `http://localhost:5000/uploads/${p.image}`,
-        }));
-        setProducts(updated);
-      } catch (err) {
-        console.error("Failed to fetch products:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-    fetchProducts();
+    try {
+      const res = await axios.get(`${API_BASE}/api/products`);
+      const list = res?.data?.data?.data || [];
+      const pg = res?.data?.data?.pagination || null;
+
+      setProducts(Array.isArray(list) ? list : []);
+      setPagination(pg);
+    } catch (err) {
+      console.log("Fetch products error:", err);
+      setError(err?.response?.data?.message || err.message || "Network error");
+      setProducts([]);
+      setPagination(null);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
 
   const filteredProducts = useMemo(() => {
     let list = [...products];
@@ -48,20 +56,20 @@ export default function ProductPage() {
       });
     }
 
-    // price filter (optional)
-    // const min = minPrice === "" ? null : Number(minPrice);
-    // const max = maxPrice === "" ? null : Number(maxPrice);
+    // price filter
+    const min = minPrice === "" ? null : Number(minPrice);
+    const max = maxPrice === "" ? null : Number(maxPrice);
 
-    // if (min !== null && !Number.isNaN(min)) {
-    //   list = list.filter((p) => Number(p.price || 0) >= min);
-    // }
-    // if (max !== null && !Number.isNaN(max)) {
-    //   list = list.filter((p) => Number(p.price || 0) <= max);
-    // }
+    if (min !== null && !Number.isNaN(min)) {
+      list = list.filter((p) => Number(p.price || 0) >= min);
+    }
+    if (max !== null && !Number.isNaN(max)) {
+      list = list.filter((p) => Number(p.price || 0) <= max);
+    }
 
     // sorting
     if (sortBy === "newest") {
-      list.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else if (sortBy === "az") {
       list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } else if (sortBy === "za") {
@@ -78,16 +86,30 @@ export default function ProductPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold">Shop keychains with your favorite one</h1>
-          {/* <p className="text-gray-500 dark:text-gray-300 mt-2">
-            Browse all keychains and accessories
-          </p> */}
+          <h1 className="text-3xl md:text-4xl font-bold">Shop keychains</h1>
 
-          {search && (
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-              Showing results for: <b>{search}</b> ({filteredProducts.length})
-            </p>
-          )}
+          <div className="mt-3 text-sm text-gray-600 dark:text-gray-300 space-y-1">
+            {pagination ? (
+              <div>
+                Total: <b>{pagination.total}</b> • Page{" "}
+                <b>
+                  {pagination.page}/{pagination.totalPages}
+                </b>
+              </div>
+            ) : (
+              <div>
+                Showing: <b>{filteredProducts.length}</b>
+              </div>
+            )}
+
+            {search && (
+              <div>
+                Results for: <b>{search}</b> ({filteredProducts.length})
+              </div>
+            )}
+
+            {error && <div className="text-red-600">{error}</div>}
+          </div>
         </div>
 
         {/* Controls */}
@@ -102,7 +124,7 @@ export default function ProductPage() {
             <option value="za">Sort: Z → A</option>
           </select>
 
-          {/* <div className="flex gap-2">
+          <div className="flex gap-2">
             <input
               value={minPrice}
               onChange={(e) => setMinPrice(e.target.value)}
@@ -117,7 +139,7 @@ export default function ProductPage() {
               placeholder="Max $"
               className="border rounded-lg px-3 py-2 w-28 bg-white dark:bg-gray-800"
             />
-          </div> */}
+          </div>
 
           <button
             onClick={() => {
@@ -132,50 +154,74 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* Grid */}
+      {/* Grid (same UI as ProductList) */}
       {filteredProducts.length === 0 ? (
         <div className="mt-14 text-center">
           <p className="text-red-500 font-semibold">No products found</p>
-          {search && (
-            <p className="text-gray-500 mt-2">
-              Try a different keyword.
-            </p>
-          )}
+          {search && <p className="text-gray-500 mt-2">Try a different keyword.</p>}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-10">
-          {filteredProducts.map((p) => (
-            <div
-              key={p.id}
-              className="border rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden bg-white dark:bg-gray-900"
-            >
-              <Link to={`/product/${p.id}`}>
-                <img
-                  src={p.image}
-                  alt={p.name}
-                  className="h-64 w-full object-cover"
-                />
-              </Link>
+          {filteredProducts.map((p) => {
+            const img = p.images?.[0] ? `${API_BASE}${p.images[0]}` : null;
 
-              <div className="p-4">
-                <h2 className="font-bold text-lg line-clamp-1">{p.name}</h2>
-
-                {/* Price if you have it */}
-                {p.price != null && (
-                  <p className="mt-1 text-gray-700 dark:text-gray-300">
-                    ${p.price}
-                  </p>
-                )}
-
-                <Link
-                  to={`/product/${p.id}`}
-                  className="mt-4 inline-flex w-full justify-center bg-yellow-100 hover:bg-yellow-200 rounded-lg py-2 font-semibold"
-                >
-                  View Details
+            return (
+              <div
+                key={p.id}
+                className="rounded-xl border border-white/10 bg-white/5 overflow-hidden hover:shadow-lg transition"
+              >
+                <Link to={`/product/${p.id}`}>
+                  <div className="h-44 bg-black/20">
+                    {img ? (
+                      <img
+                        src={img}
+                        alt={p.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center opacity-60">
+                        No image
+                      </div>
+                    )}
+                  </div>
                 </Link>
+
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-semibold line-clamp-1">{p.name}</div>
+                    {p.isFeatured && (
+                      <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/20">
+                        Featured
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-sm opacity-70 mt-1 line-clamp-2">
+                    {p.description}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between">
+                    <div className="font-bold">${Number(p.price).toFixed(2)}</div>
+                    <div className="text-sm opacity-70">Stock: {p.stock}</div>
+                  </div>
+
+                  <div className="text-xs opacity-60 mt-2">
+                    Category: {p.category || "—"}
+                  </div>
+
+                  <Link
+                    to={`/product/${p.id}`}
+                    className="mt-4 inline-flex w-full justify-center rounded-lg py-2 font-semibold bg-yellow-100 hover:bg-yellow-200 text-black"
+                  >
+                    View Details
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

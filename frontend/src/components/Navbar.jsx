@@ -22,15 +22,23 @@ export default function Navbar() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  //shop drop down
+  const [shopOpen, setShopOpen] = useState(false);
+
+const categories = ["Anime", "Cute", "Minimal", "Custom", "Accessories"];
+
   // ✅ NEW: search state
   const [searchTerm, setSearchTerm] = useState("");
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const closeAll = () => {
-    setMenuOpen(false);
-    setProfileOpen(false);
-  };
+  setMenuOpen(false);
+  setProfileOpen(false);
+  setShopOpen(false);
+};
+
+  
 
   const handleLogout = () => {
     logout();
@@ -86,14 +94,46 @@ export default function Navbar() {
                 Home
               </Link>
             </li>
-            <li>
-              <Link
-                to="/shop"
-                className="hover:text-blue-800 dark:hover:text-blue-400"
-              >
-                Shop
-              </Link>
-            </li>
+           <li className="relative">
+  <button
+    onClick={() => setShopOpen((s) => !s)}
+    className="hover:text-blue-800 dark:hover:text-blue-400 flex items-center gap-2"
+  >
+    Shop <span className="text-xs">▾</span>
+  </button>
+
+  {shopOpen && (
+    <div
+      className="absolute left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50"
+      onMouseLeave={() => setShopOpen(false)}
+    >
+      <button
+        onClick={() => {
+          navigate("/shop");
+          setShopOpen(false);
+          closeAll();
+        }}
+        className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+      >
+        All Products
+      </button>
+
+      {categories.map((cat) => (
+        <button
+          key={cat}
+          onClick={() => {
+            navigate(`/shop?category=${encodeURIComponent(cat)}`);
+            setShopOpen(false);
+            closeAll();
+          }}
+          className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+        >
+          {cat}
+        </button>
+      ))}
+    </div>
+  )}
+</li>
             <li>
 
               <Link
