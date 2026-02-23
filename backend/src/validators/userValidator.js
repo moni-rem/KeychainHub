@@ -1,33 +1,45 @@
-const { query } = require("express-validator");
+const { z } = require("zod");
 
-const userValidator = {
-  userQuery: [
-    query("page")
-      .optional()
-      .isInt({ min: 1 })
-      .withMessage("Page must be a positive integer"),
+/**
+ * Validation schema for user query parameters
+ * Validates pagination, search, and sorting options
+ */
+const userQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : 1))
+    .refine((val) => val >= 1, {
+      message: "Page must be a positive integer",
+    }),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : 10))
+    .refine((val) => val >= 1 && val <= 50, {
+      message: "Limit must be between 1 and 50",
+    }),
+  search: z
+    .string()
+    .trim()
+    .max(100, "Search query cannot exceed 100 characters")
+    .optional(),
+  sortBy: z
+    .enum(["email", "name", "createdAt"], {
+      errorMap: () => ({
+        message: "Sort by must be one of: email, name, createdAt",
+      }),
+    })
+    .optional(),
+  sortOrder: z
+    .enum(["asc", "desc"], {
+      errorMap: () => ({
+        message: "Sort order must be either asc or desc",
+      }),
+    })
+    .optional(),
+});
 
-    query("limit")
-      .optional()
-      .isInt({ min: 1, max: 50 })
-      .withMessage("Limit must be between 1 and 50"),
-
-    query("search")
-      .optional()
-      .trim()
-      .isLength({ max: 100 })
-      .withMessage("Search query cannot exceed 100 characters"),
-
-    query("sortBy")
-      .optional()
-      .isIn(["email", "name", "createdAt"])
-      .withMessage("Sort by must be one of: email, name, createdAt"),
-
-    query("sortOrder")
-      .optional()
-      .isIn(["asc", "desc"])
-      .withMessage("Sort order must be either asc or desc"),
-  ],
+module.exports = {
+  userQuerySchema,
 };
-
-module.exports = userValidator;

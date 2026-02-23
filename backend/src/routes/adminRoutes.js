@@ -1,12 +1,24 @@
 const express = require("express");
+const {
+  getDashboardStats,
+  getSalesAnalytics,
+  getAllOrders,
+  updateOrderStatus,
+  getAllProducts,
+  bulkUpdateProducts,
+  getAllUsers,
+  sendBulkEmail,
+  getSystemStats,
+  exportData,
+} = require("../controllers/adminController.js");
+const { authMiddleware } = require("../middleware/authMiddleware.js");
+const { validateQuery } = require("../middleware/validateQuery.js");
+const { orderQuerySchema } = require("../validators/orderValidator.js");
+
 const router = express.Router();
-const adminController = require("../controllers/adminController");
-const { adminAuth } = require("../middleware/auth");
-const orderValidator = require("../validators/orderValidator");
-const { validateQuery } = require("../middleware/validate");
 
 // All admin routes require admin authentication
-router.use(adminAuth);
+router.use(authMiddleware);
 
 // Dashboard
 router.get("/dashboard", adminController.getDashboardStats);
@@ -14,28 +26,23 @@ router.get("/dashboard", adminController.getDashboardStats);
 router.get("/analytics", adminController.getSalesAnalytics);
 
 // Orders management
-router.get(
-  "/orders",
-  orderValidator.orderQuery,
-  validateQuery,
-  adminController.getAllOrders,
-);
+router.get("/orders", validateQuery(orderQuerySchema), getAllOrders);
 
-router.put("/orders/:id/status", adminController.updateOrderStatus);
+router.put("/orders/:id/status", updateOrderStatus);
 
 // Products management
-router.get("/products", adminController.getAllProducts);
+router.get("/products", getAllProducts);
 
-router.post("/products/bulk", adminController.bulkUpdateProducts);
+router.post("/products/bulk", bulkUpdateProducts);
 
 // Users management
-router.get("/users", adminController.getAllUsers);
+router.get("/users", getAllUsers);
 
-router.post("/users/bulk-email", adminController.sendBulkEmail);
+router.post("/users/bulk-email", sendBulkEmail);
 
 // System
-router.get("/system", adminController.getSystemStats);
+router.get("/system", getSystemStats);
 
-router.get("/export", adminController.exportData);
+router.get("/export", exportData);
 
 module.exports = router;

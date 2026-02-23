@@ -8,14 +8,19 @@ class ProductService {
     // Process image URLs
     const imageUrls = images.map((img) => `/uploads/products/${img.filename}`);
 
-    const product = await prisma.product.create({
-      data: {
-        ...productData,
-        images: imageUrls,
-      },
+    // Create product with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          ...productData,
+          images: imageUrls,
+        },
+      });
+
+      return product;
     });
 
-    return product;
+    return result;
   }
 
   async getProducts(query) {
@@ -127,17 +132,22 @@ class ProductService {
       throw new ApiError(404, "Product not found");
     }
 
-    // Delete product images from server
-    product.images.forEach((imagePath) => {
-      Helpers.deleteFile(imagePath);
+    // Delete product with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete product images from server
+      product.images.forEach((imagePath) => {
+        Helpers.deleteFile(imagePath);
+      });
+
+      // Delete product from database
+      await tx.product.delete({
+        where: { id },
+      });
+
+      return { message: "Product deleted successfully" };
     });
 
-    // Delete product from database
-    await prisma.product.delete({
-      where: { id },
-    });
-
-    return { message: "Product deleted successfully" };
+    return result;
   }
 
   async updateStock(productId, quantity) {

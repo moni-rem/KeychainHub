@@ -1,58 +1,43 @@
 const express = require("express");
-const router = express.Router();
-const productController = require("../controllers/productController");
-const { auth, adminAuth, optionalAuth } = require("../middleware/auth");
-const productValidator = require("../validators/productValidator");
-const { validate, validateQuery } = require("../middleware/validate");
 const {
-  uploadProductImages,
-  handleUploadError,
-} = require("../middleware/upload");
+  getAllKeychains,
+  getKeychainById,
+  createKeychain,
+  updateKeychain,
+  deleteKeychain,
+  getFeaturedKeychains,
+  getKeychainsByCategory,
+} = require("../controllers/productController.js");
+const { validateRequest } = require("../middleware/validateRequest.js");
+const { validateQuery } = require("../middleware/validateQuery.js");
+const {
+  createProductSchema,
+  updateProductSchema,
+  productQuerySchema,
+} = require("../validators/productValidator.js");
+const { authMiddleware } = require("../middleware/authMiddleware.js");
+
+const router = express.Router();
 
 // Public routes
-router.get(
-  "/",
-  optionalAuth,
-  productValidator.productQuery,
-  validateQuery,
-  productController.getProducts,
-);
+router.get("/", validateQuery(productQuerySchema), getAllKeychains);
+router.get("/featured", getFeaturedKeychains);
+router.get("/category/:category", getKeychainsByCategory);
+router.get("/:id", getKeychainById);
 
-router.get("/featured", productController.getFeaturedProducts);
-
-router.get("/search", productController.searchProducts);
-
-router.get("/categories", productController.getCategories);
-
-router.get("/category/:category", productController.getProductsByCategory);
-
-router.get("/:id", productController.getProduct);
-
-// Protected routes (admin only)
+// Admin only routes
 router.post(
   "/",
-  adminAuth,
-  uploadProductImages,
-  handleUploadError,
-  productValidator.createProduct,
-  validate,
-  productController.createProduct,
+  authMiddleware,
+  validateRequest(createProductSchema),
+  createKeychain,
 );
-
 router.put(
   "/:id",
-  adminAuth,
-  uploadProductImages,
-  handleUploadError,
-  productValidator.updateProduct,
-  validate,
-  productController.updateProduct,
+  authMiddleware,
+  validateRequest(updateProductSchema),
+  updateKeychain,
 );
-
-router.delete("/:id", adminAuth, productController.deleteProduct);
-
-router.put("/:id/stock", adminAuth, productController.updateStock);
-
-router.get("/admin/stats", adminAuth, productController.getProductStats);
+router.delete("/:id", authMiddleware, deleteKeychain);
 
 module.exports = router;

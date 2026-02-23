@@ -97,21 +97,26 @@ class UserService {
   }
 
   async updateUser(userId, updateData) {
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        avatar: true,
-        phone: true,
-        address: true,
-        isAdmin: true,
-      },
+    // Update user with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: updateData,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          avatar: true,
+          phone: true,
+          address: true,
+          isAdmin: true,
+        },
+      });
+
+      return user;
     });
 
-    return user;
+    return result;
   }
 
   async deleteUser(userId) {
@@ -177,18 +182,23 @@ class UserService {
   }
 
   async updateUserRole(userId, isAdmin) {
-    const user = await prisma.user.update({
-      where: { id: userId },
-      data: { isAdmin },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        isAdmin: true,
-      },
+    // Update user role with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: userId },
+        data: { isAdmin },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isAdmin: true,
+        },
+      });
+
+      return user;
     });
 
-    return user;
+    return result;
   }
 
   async resetPassword(userId) {
@@ -200,20 +210,25 @@ class UserService {
       throw new ApiError(404, "User not found");
     }
 
-    // Generate random password
-    const newPassword = BcryptUtils.generateRandomPassword();
-    const hashedPassword = await BcryptUtils.hashPassword(newPassword);
+    // Reset password with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Generate random password
+      const newPassword = BcryptUtils.generateRandomPassword();
+      const hashedPassword = await BcryptUtils.hashPassword(newPassword);
 
-    // Update password
-    await prisma.user.update({
-      where: { id: userId },
-      data: { password: hashedPassword },
+      // Update password
+      await tx.user.update({
+        where: { id: userId },
+        data: { password: hashedPassword },
+      });
+
+      return {
+        message: "Password reset successfully",
+        newPassword, // Note: In production, send this via email
+      };
     });
 
-    return {
-      message: "Password reset successfully",
-      newPassword, // Note: In production, send this via email
-    };
+    return result;
   }
 
   async getUserStats() {

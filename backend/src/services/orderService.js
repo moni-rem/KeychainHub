@@ -154,12 +154,17 @@ class OrderService {
       );
     }
 
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: { status },
+    // Update order status with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: { status },
+      });
+
+      return order;
     });
 
-    return order;
+    return result;
   }
 
   async getAllOrders(query = {}) {

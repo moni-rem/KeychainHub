@@ -1,35 +1,37 @@
 const express = require("express");
+const {
+  createOrder,
+  getUserOrders,
+  getOrder,
+  cancelOrder,
+  generateInvoice,
+  paymentWebhook,
+} = require("../controllers/orderController.js");
+const { authMiddleware } = require("../middleware/authMiddleware.js");
+const { validateRequest } = require("../middleware/validateRequest.js");
+const { validateQuery } = require("../middleware/validateQuery.js");
+const {
+  createOrderSchema,
+  orderQuerySchema,
+} = require("../validators/orderValidator.js");
+
 const router = express.Router();
-const orderController = require("../controllers/orderController");
-const { auth } = require("../middleware/auth");
-const orderValidator = require("../validators/orderValidator");
-const { validate, validateQuery } = require("../middleware/validate");
 
 // All order routes require authentication
-router.use(auth);
+router.use(authMiddleware);
 
 // Order operations
-router.post(
-  "/",
-  orderValidator.createOrder,
-  validate,
-  orderController.createOrder,
-);
+router.post("/", validateRequest(createOrderSchema), createOrder);
 
-router.get(
-  "/",
-  orderValidator.orderQuery,
-  validateQuery,
-  orderController.getUserOrders,
-);
+router.get("/", validateQuery(orderQuerySchema), getUserOrders);
 
-router.get("/:id", orderController.getOrder);
+router.get("/:id", getOrder);
 
-router.put("/:id/cancel", orderController.cancelOrder);
+router.put("/:id/cancel", cancelOrder);
 
-router.get("/:id/invoice", orderController.generateInvoice);
+router.get("/:id/invoice", generateInvoice);
 
 // Payment webhook (public route for payment providers)
-router.post("/webhook/payment", orderController.paymentWebhook);
+router.post("/webhook/payment", paymentWebhook);
 
 module.exports = router;
