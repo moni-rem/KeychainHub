@@ -1,9 +1,11 @@
 import { useState } from "react";
-import axios from "axios";
 import { useCart } from "../../context/CartContext";
 import { Link, useNavigate } from "react-router-dom";
+import api from "../../api/axios";
 
-const API_BASE = "http://localhost:5000";
+const API_ORIGIN = (
+  process.env.REACT_APP_API_URL || "http://localhost:5001/api"
+).replace(/\/api\/?$/, "");
 
 export default function CartPage() {
   const { cartItems, increase, decrease, removeFromCart, clearCart } = useCart();
@@ -42,18 +44,13 @@ export default function CartPage() {
         })),
       };
 
-      await axios.post(
-        `${API_BASE}/api/cart/merge`,
-        { guestCart },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      await api.post("/cart/merge", { guestCart });
 
       // ✅ 2) Create order (backend uses DB cart)
-      const res = await axios.post(
-        `${API_BASE}/api/orders`,
-        { address: address.trim(), phone: phone.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const res = await api.post("/orders", {
+        address: address.trim(),
+        phone: phone.trim(),
+      });
 
       // ✅ 3) Clear frontend cart
       if (clearCart) clearCart();
@@ -89,9 +86,12 @@ export default function CartPage() {
 
       <div className="space-y-6">
         {cartItems.map((item) => {
-          const imgSrc = item.image?.startsWith("http")
-            ? item.image
-            : `${API_BASE}${item.image || ""}`;
+          const rawImage = item.imageUrl || item.image || "";
+          const imgSrc = !rawImage
+            ? "/no-image.png"
+            : rawImage.startsWith("http")
+            ? rawImage
+            : `${API_ORIGIN}${rawImage}`;
 
           return (
             <div key={item.id} className="flex items-center gap-6 border p-4 rounded-lg shadow">

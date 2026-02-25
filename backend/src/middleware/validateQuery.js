@@ -1,22 +1,29 @@
 const validateQuery = (schema) => {
   return (req, res, next) => {
-    const result = schema.safeParse(req.query);
+    try {
+      // Zod validation
+      const result = schema.safeParse(req.query);
 
-    if (!result.success) {
-      const formatted = result.error.format();
+      if (!result.success) {
+        const errors = result.error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        }));
 
-      const flatErrors = Object.values(formatted)
-        .flat()
-        .filter(Boolean)
-        .map((err) => err._errors)
-        .flat();
+        return res.status(400).json({
+          success: false,
+          message: "Query validation error",
+          errors,
+        });
+      }
 
-      return res.status(400).json({ message: flatErrors.join(", ") });
+      // Replace with validated values
+      req.query = result.data;
+      next();
+    } catch (err) {
+      console.error("Validation middleware error:", err);
+      next(err);
     }
-
-    // Update req.query with transformed values
-    req.query = result.data;
-    next();
   };
 };
 

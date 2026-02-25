@@ -1,17 +1,21 @@
 const { z } = require("zod");
 
 // Product categories
-const CATEGORIES = ["KEYCHAIN", "CUSTOM", "LUXURY", "COLLECTIBLE"];
+const CATEGORIES = [
+  "Metal",
+  "Plastic",
+  "Leather",
+  "Rubber",
+  "Acrylic",
+  "Wood",
+  "Silicone",
+];
 
 // Pagination limits
 const PAGINATION = {
   MAX_LIMIT: 100,
 };
 
-/**
- * Validation schema for creating a product
- * Validates name, description, price, stock, category, and featured status
- */
 const createProductSchema = z.object({
   name: z
     .string()
@@ -48,10 +52,6 @@ const createProductSchema = z.object({
   isFeatured: z.boolean().optional(),
 });
 
-/**
- * Validation schema for updating a product
- * All fields are optional for partial updates
- */
 const updateProductSchema = z.object({
   name: z
     .string()
@@ -86,10 +86,6 @@ const updateProductSchema = z.object({
   isFeatured: z.boolean().optional(),
 });
 
-/**
- * Validation schema for product query parameters
- * Validates pagination, filtering, sorting, and search
- */
 const productQuerySchema = z.object({
   page: z
     .string()

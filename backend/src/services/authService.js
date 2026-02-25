@@ -1,5 +1,5 @@
 const bcrypt = require("bcryptjs");
-const prisma = require("../config/database");
+const { prisma } = require("../config/db");
 const generateToken = require("../utils/generateToken");
 const JWTUtils = generateToken.JWTUtils;
 const ApiError = require("../utils/apiError");

@@ -64,6 +64,7 @@ function AppContent() {
 
               {/* Login */}
               <Route path="/login" element={<UserLogin />} />
+              <Route path="/register" element={<UserRegister />} />
               <Route path="/Register" element={<UserRegister />} />
 
             </Routes>

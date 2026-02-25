@@ -10,15 +10,16 @@ export function CartProvider({ children }) {
   });
 
   const addToCart = (product) => {
+    const qty = Math.max(1, Number(product?.quantity || 1));
     setCartItems(prev => {
       const exist = prev.find(item => item.id === product.id);
       let updated;
       if (exist) {
         updated = prev.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+          item.id === product.id ? { ...item, quantity: item.quantity + qty } : item
         );
       } else {
-        updated = [...prev, { ...product, quantity: 1 }];
+        updated = [...prev, { ...product, quantity: qty }];
       }
       localStorage.setItem("cart_v1", JSON.stringify(updated));
       return updated;

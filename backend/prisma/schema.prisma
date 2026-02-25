@@ -5,10 +5,11 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String   @id @default(uuid()) // uuid is a universally unique identifier, which is a 128-bit number used to identify information in computer systems. It is often used as a primary key in databases to ensure that each record has a unique identifier. The @default(uuid()) directive tells Prisma to automatically generate a UUID for the id field when a new User record is created.
+  id        String   @id @default(uuid())
   email     String   @unique
   password  String
   name      String?
@@ -27,15 +28,32 @@ model User {
   @@index([createdAt])
 }
 
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+}
+
 model Product {
   id          String   @id @default(uuid())
   name        String
-  description String
+  description String?
   price       Float
   stock       Int      @default(0)
   images      String[]
   category    String?
+  color       String?
+  material    String?
+  sku         String?  @unique
   isFeatured  Boolean  @default(false)
+  isActive    Boolean  @default(true)
   
   cartItems   CartItem[]
   orderItems  OrderItem[]
@@ -69,17 +87,30 @@ model CartItem {
 }
 
 model Order {
-  id        String     @id @default(uuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  items     OrderItem[]
-  total     Float
-  status    String     @default("pending")
-  address   String?
-  phone     String?
-  notes     String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  total          Float
+  status         String        @default("pending")
+  currency       String        @default("USD") @db.VarChar(3)
+  paymentMethod  PaymentMethod @default(credit_card) @map("payment_method")
+  transactionId  String?       @map("transaction_id") @db.VarChar(255)
+  paidAt         String?       @map("paid_at") @db.Text
+  qrCode         String?       @map("qr_code") @db.Text
+  qrMd5          String?       @unique @map("qr_md5") @db.VarChar(32)
+  qrExpiration   BigInt?       @map("qr_expiration")
+  bakongHash     String?       @db.VarChar(255)
+  fromAccountId  String?       @map("from_account_id") @db.VarChar(100)
+  toAccountId    String?       @map("to_account_id") @db.VarChar(100)
+  description    String?       @db.Text
+  paid           Boolean       @default(false)
+  address        String?
+  phone          String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
 }
 
 model OrderItem {
@@ -90,4 +121,9 @@ model OrderItem {
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+}
+
+enum PaymentMethod {
+  khqr
+  credit_card
 }

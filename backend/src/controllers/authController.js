@@ -40,6 +40,8 @@ const register = async (req, res) => {
       user: {
         id: user.id,
         email: email,
+        name: user.name,
+        isAdmin: user.isAdmin || false,
       },
       token: token,
     },
@@ -78,12 +80,14 @@ const login = async (req, res) => {
   const token = generateToken(user.id, res);
 
   //when access create user
-  res.status(201).json({
+  res.status(200).json({
     status: "success",
     data: {
       user: {
         id: user.id,
         email: email,
+        name: user.name,
+        isAdmin: user.isAdmin || false,
       },
       token: token,
     },
@@ -102,44 +106,153 @@ const logout = async (req, res) => {
   });
 };
 
-module.exports = { register, login, logout };
+// ============================================
+// NEW FUNCTION: Make a user an admin (for testing)
+// ============================================
+// This function allows you to set a user as admin by email
+// IMPORTANT: In production, you should protect this with additional security
+const makeAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
 
-// here is the work flow register:
-//1. check  if user already exists(មាន)
-//if it have user it show User already exists with this email"
+    if (!email) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email is required",
+      });
+    }
 
-// 2.  use bcrypt to convert password to hash
-//3.create user register
-// when create access it show success
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email: email },
+    });
 
-// for login flow :
-// 1. check to find the unique email and pass
-//2.return error when check user are not register yet
-// findUnique use for check the unique such as (email, password, or ,, that u put on code where : {email})
-//3.verify password
-//use compare to compare the password that store in table
-//4.check condition if user password are not valid or invalid it show error
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found with this email",
+      });
+    }
 
-// so here is the whole flow of register and login function in authController.js file
-// that use prisma as ORM to interact with database and bcryptjs to hash password
-// and jsonwebtoken to generate JWT token for authentication
-// and also set cookie in the response for storing the token in client side
-// and enhance security by setting httpOnly, secure, sameSite and maxAge options in the cookie
-// and finally export the register and login function to use in authRoutes.js file
+    // Update user to be admin
+    const updatedUser = await prisma.user.update({
+      where: { email: email },
+      data: { isAdmin: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isAdmin: true,
+        updatedAt: true,
+      },
+    });
 
-// fro register function:
-// 1. check if user already exists
-// 2. hash password bcrypt
-// 3. create user
-// 4. generate JWT token
-// 5. send response with user data and token
+    res.status(200).json({
+      status: "success",
+      message: "User is now an admin",
+      data: {
+        user: updatedUser,
+      },
+    });
+  } catch (error) {
+    console.error("Error in makeAdmin:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to make user admin",
+    });
+  }
+};
 
-// for login function:
-// 1. find user by email
-// 2. verify password
-// 3. generate JWT token
-// 4. send response with user data and token
+// ============================================
+// OPTIONAL: Get current user profile
+// ============================================
+const getProfile = async (req, res) => {
+  try {
+    // req.user is set by authMiddleware
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        avatar: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
-// for logout function:
-// 1. clear the jwt cookie
-// 2. send response with success message
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: { user },
+    });
+  } catch (error) {
+    console.error("Error in getProfile:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get profile",
+    });
+  }
+};
+
+// ============================================
+// OPTIONAL: Get all users (admin only)
+// ============================================
+const getAllUsers = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        status: "error",
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        avatar: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: { users },
+    });
+  } catch (error) {
+    console.error("Error in getAllUsers:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get users",
+    });
+  }
+};
+
+// Export all functions
+module.exports = {
+  register,
+  login,
+  logout,
+  makeAdmin, // New function
+  getProfile, // Optional: for getting user profile
+  getAllUsers, // Optional: for admin to see all users
+};

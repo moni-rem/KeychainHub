@@ -1,5 +1,6 @@
 const app = require("./app");
 require("dotenv").config();
+const { disconnectDB } = require("./config/db"); // Import disconnectDB
 
 const PORT = process.env.PORT || 5001;
 

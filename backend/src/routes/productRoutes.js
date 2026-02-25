@@ -1,43 +1,51 @@
 const express = require("express");
 const {
-  getAllKeychains,
-  getKeychainById,
-  createKeychain,
-  updateKeychain,
-  deleteKeychain,
-  getFeaturedKeychains,
-  getKeychainsByCategory,
-} = require("../controllers/productController.js");
-const { validateRequest } = require("../middleware/validateRequest.js");
-const { validateQuery } = require("../middleware/validateQuery.js");
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getFeaturedProducts,
+  getProductsByCategory,
+} = require("../controllers/productController");
+const { validateRequest } = require("../middleware/validateRequest");
+const { validateQuery } = require("../middleware/validateQuery");
 const {
   createProductSchema,
   updateProductSchema,
   productQuerySchema,
-} = require("../validators/productValidator.js");
-const { authMiddleware } = require("../middleware/authMiddleware.js");
+} = require("../validators/productValidator");
+const {
+  authMiddleware,
+  adminMiddleware,
+} = require("../middleware/authMiddleware"); // Only import authMiddleware for now
 
 const router = express.Router();
 
 // Public routes
-router.get("/", validateQuery(productQuerySchema), getAllKeychains);
-router.get("/featured", getFeaturedKeychains);
-router.get("/category/:category", getKeychainsByCategory);
-router.get("/:id", getKeychainById);
+router.get("/", validateQuery(productQuerySchema), getAllProducts);
+router.get("/featured", getFeaturedProducts);
+router.get("/category/:category", getProductsByCategory);
+router.get("/:id", getProductById);
 
-// Admin only routes
+// Admin only routes - temporarily without adminMiddleware
 router.post(
   "/",
-  authMiddleware,
+  authMiddleware, // Make sure this is here
+  adminMiddleware, // Make sure this is here
   validateRequest(createProductSchema),
-  createKeychain,
+  createProduct,
 );
 router.put(
   "/:id",
-  authMiddleware,
+  authMiddleware, // Keep auth check, remove admin check for now
   validateRequest(updateProductSchema),
-  updateKeychain,
+  updateProduct,
 );
-router.delete("/:id", authMiddleware, deleteKeychain);
+router.delete(
+  "/:id",
+  authMiddleware, // Keep auth check, remove admin check for now
+  deleteProduct,
+);
 
 module.exports = router;

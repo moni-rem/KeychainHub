@@ -1,4 +1,4 @@
-const prisma = require("../config/database");
+const { prisma } = require("../config/db");
 const ApiError = require("../utils/apiError");
 const Helpers = require("../utils/helpers");
 const productService = require("./productService");

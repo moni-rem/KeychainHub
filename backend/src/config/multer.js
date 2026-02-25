@@ -1,43 +1,36 @@
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
-const env = require("./env");
-const constants = require("./constants");
 
 // Ensure upload directories exist
-const ensureDirectories = () => {
-  const dirs = [
-    path.join(__dirname, "../../uploads"),
-    path.join(__dirname, "../../uploads/products"),
-    path.join(__dirname, "../../uploads/avatars"),
-  ];
+const uploadDirs = ["uploads/products", "uploads/avatars"];
+uploadDirs.forEach((dir) => {
+  const fullPath = path.join(__dirname, "../../", dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+  }
+});
 
-  dirs.forEach((dir) => {
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
-  });
-};
-
-ensureDirectories();
-
-// Storage configuration
+// Configure storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let uploadDir = "uploads/";
+    let uploadPath = "uploads/";
 
-    if (file.fieldname === "avatar") {
-      uploadDir = path.join(uploadDir, "avatars");
-    } else if (file.fieldname === "images") {
-      uploadDir = path.join(uploadDir, "products");
+    // Determine folder based on route
+    if (req.baseUrl.includes("products")) {
+      uploadPath += "products";
+    } else if (req.baseUrl.includes("users")) {
+      uploadPath += "avatars";
+    } else {
+      uploadPath += "misc";
     }
 
-    cb(null, uploadDir);
+    cb(null, path.join(__dirname, "../../", uploadPath));
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const extension = path.extname(file.originalname);
-    cb(null, file.fieldname + "-" + uniqueSuffix + extension);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + "-" + uniqueSuffix + ext);
   },
 });
 
@@ -45,17 +38,19 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedTypes = [
     "image/jpeg",
-    "image/png",
     "image/jpg",
-    "image/webp",
+    "image/png",
     "image/gif",
+    "image/webp",
   ];
 
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
     cb(
-      new Error("Only image files (jpeg, png, jpg, webp, gif) are allowed"),
+      new Error(
+        "Invalid file type. Only JPEG, JPG, PNG, GIF, and WEBP are allowed.",
+      ),
       false,
     );
   }
@@ -64,20 +59,10 @@ const fileFilter = (req, file, cb) => {
 // Create multer instance
 const upload = multer({
   storage: storage,
-  limits: {
-    fileSize: env.MAX_FILE_SIZE,
-    files: constants.UPLOAD_LIMITS.MAX_FILES,
-  },
   fileFilter: fileFilter,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
 });
 
-// Export specific upload configurations
-module.exports = {
-  upload,
-  uploadAvatar: upload.single("avatar"),
-  uploadProductImages: upload.array(
-    "images",
-    constants.UPLOAD_LIMITS.MAX_FILES,
-  ),
-  uploadSingleImage: upload.single("image"),
-};
+module.exports = upload;

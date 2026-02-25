@@ -4,23 +4,123 @@ const userService = require("../services/userService");
 const ApiResponse = require("../utils/apiResponse");
 const Helpers = require("../utils/helpers");
 const constants = require("../config/constants");
+const { prisma } = require("../config/db.js");
+const bcrypt = require("bcryptjs");
+const generateToken = require("../utils/generateToken.js");
+const os = require("os");
 
 // AdminController handles all admin-related operations
-// Workflow:
-// 1. Validate input parameters
-// 2. Call appropriate service for business logic
-// 3. Handle errors with appropriate status codes
-// 4. Return consistent response format with status and data/message
 class AdminController {
+  getTimeRangeBounds(timeRange = "month") {
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (timeRange) {
+      case "day":
+        startDate.setDate(startDate.getDate() - 1);
+        break;
+      case "week":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "month":
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case "year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setMonth(startDate.getMonth() - 1);
+    }
+
+    return { startDate, endDate };
+  }
+
+  // Admin Login
+  adminLogin = Helpers.asyncHandler(async (req, res) => {
+    const { email, password } = req.body;
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    // Check if user exists
+    if (!user) {
+      const response = ApiResponse.unauthorized("Invalid email or password");
+      return response.send(res);
+    }
+
+    // Check if user is admin
+    if (!user.isAdmin) {
+      const response = ApiResponse.forbidden("Access denied. Admin only.");
+      return response.send(res);
+    }
+
+    // Verify password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      const response = ApiResponse.unauthorized("Invalid email or password");
+      return response.send(res);
+    }
+
+    // Generate JWT token and set cookie (using same generateToken function)
+    const token = generateToken(user.id, res);
+
+    // Return success response
+    const response = ApiResponse.success("Admin login successful", {
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isAdmin: user.isAdmin,
+      },
+      token,
+    });
+    response.send(res);
+  });
+
+  // Admin Logout
+  adminLogout = Helpers.asyncHandler(async (req, res) => {
+    // Clear the JWT cookie
+    res.cookie("jwt", "", {
+      httpOnly: true,
+      expires: new Date(0),
+    });
+
+    const response = ApiResponse.success("Admin logged out successfully");
+    response.send(res);
+  });
+
+  // Get current admin profile
+  getAdminProfile = Helpers.asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        avatar: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      const response = ApiResponse.notFound("User not found");
+      return response.send(res);
+    }
+
+    const response = ApiResponse.success("Admin profile retrieved", { user });
+    response.send(res);
+  });
+
   // Get dashboard statistics for admin overview
-  // Workflow:
-  // 1. Extract timeRange from query params (default: "month")
-  // 2. Fetch data from multiple services in parallel
-  // 3. Calculate derived metrics (growth rate)
-  // 4. Structure dashboard data
-  // 5. Return success response with dashboard data
   getDashboardStats = Helpers.asyncHandler(async (req, res) => {
     const { timeRange = "month" } = req.query;
+    const { startDate, endDate } = this.getTimeRangeBounds(timeRange);
 
     const [
       orderStats,
@@ -28,6 +128,11 @@ class AdminController {
       userStats,
       recentOrders,
       lowStockProducts,
+      totalBuyingCustomers,
+      activeBuyingCustomers,
+      activeProductsCount,
+      allTimeOrderCount,
+      allTimeRevenueAgg,
     ] = await Promise.all([
       orderService.getOrderStats(timeRange),
       productService.getProductStats(),
@@ -35,16 +140,53 @@ class AdminController {
       orderService.getAllOrders({ limit: 5 }),
       productService.getProducts({
         limit: 5,
-        stock: "low", // This would need a custom filter
+        stock: "low",
+      }),
+      prisma.user.count({
+        where: {
+          orders: {
+            some: {},
+          },
+        },
+      }),
+      prisma.user.count({
+        where: {
+          orders: {
+            some: {
+              createdAt: {
+                gte: startDate,
+                lte: endDate,
+              },
+            },
+          },
+        },
+      }),
+      prisma.product.count({
+        where: {
+          isActive: true,
+        },
+      }),
+      prisma.order.count(),
+      prisma.order.aggregate({
+        _sum: { total: true },
+        where: {
+          status: {
+            not: "cancelled",
+          },
+        },
       }),
     ]);
 
+    const allTimeRevenue = Number(allTimeRevenueAgg?._sum?.total || 0);
+
     const dashboardData = {
       overview: {
-        totalRevenue: orderStats.totalRevenue,
-        totalOrders: orderStats.totalOrders,
-        totalProducts: productStats.totalProducts,
+        totalRevenue: Number(allTimeRevenue.toFixed(2)),
+        totalOrders: allTimeOrderCount,
+        totalProducts: activeProductsCount,
         totalUsers: userStats.totalUsers,
+        totalCustomers: totalBuyingCustomers,
+        activeCustomers: activeBuyingCustomers,
         growthRate:
           orderStats.totalOrders > 0
             ? (
@@ -56,12 +198,13 @@ class AdminController {
       orderStats,
       productStats: {
         ...productStats,
+        activeProducts: activeProductsCount,
         lowStockProducts: productStats.lowStockProducts,
         outOfStockProducts: productStats.outOfStockProducts,
       },
       userStats,
       recentOrders: recentOrders.data || [],
-      lowStockProducts: lowStockProducts.products || [],
+      lowStockProducts: lowStockProducts.data || [],
       timeRange,
     };
 
@@ -73,11 +216,6 @@ class AdminController {
   });
 
   // Get sales analytics for a date range
-  // Workflow:
-  // 1. Extract startDate and endDate from query params
-  // 2. Validate required parameters
-  // 3. Call orderService to get analytics data
-  // 4. Return success response with analytics data
   getSalesAnalytics = Helpers.asyncHandler(async (req, res) => {
     const { startDate, endDate } = req.query;
 
@@ -98,10 +236,6 @@ class AdminController {
   });
 
   // Update order status
-  // Workflow:
-  // 1. Extract order ID from params and status from body
-  // 2. Call orderService to update the order status
-  // 3. Return success response with updated order
   updateOrderStatus = Helpers.asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
@@ -113,10 +247,6 @@ class AdminController {
   });
 
   // Get all orders with optional filtering
-  // Workflow:
-  // 1. Extract query parameters for filtering
-  // 2. Call orderService to get orders
-  // 3. Return success response with orders data
   getAllOrders = Helpers.asyncHandler(async (req, res) => {
     const result = await orderService.getAllOrders(req.query);
 
@@ -125,10 +255,6 @@ class AdminController {
   });
 
   // Get all users with optional filtering
-  // Workflow:
-  // 1. Extract query parameters for filtering
-  // 2. Call userService to get users
-  // 3. Return success response with users data
   getAllUsers = Helpers.asyncHandler(async (req, res) => {
     const result = await userService.getUsers(req.query);
 
@@ -136,11 +262,54 @@ class AdminController {
     response.send(res);
   });
 
+  // Get user by ID
+  getUserById = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const user = await userService.getUserById(id);
+
+    if (!user) {
+      const response = ApiResponse.notFound("User not found");
+      return response.send(res);
+    }
+
+    const response = ApiResponse.success("User retrieved successfully", {
+      user,
+    });
+    response.send(res);
+  });
+
+  // Update user
+  updateUser = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Remove sensitive fields that shouldn't be updated directly
+    const { password, ...safeData } = updateData;
+
+    const user = await userService.updateUser(id, safeData);
+
+    const response = ApiResponse.success("User updated successfully", { user });
+    response.send(res);
+  });
+
+  // Delete user
+  deleteUser = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    // Don't allow deleting yourself
+    if (id === req.user.id) {
+      const response = ApiResponse.badRequest("Cannot delete your own account");
+      return response.send(res);
+    }
+
+    await userService.deleteUser(id);
+
+    const response = ApiResponse.success("User deleted successfully");
+    response.send(res);
+  });
+
   // Get all products with optional filtering
-  // Workflow:
-  // 1. Extract query parameters for filtering
-  // 2. Call productService to get products
-  // 3. Return success response with products data
   getAllProducts = Helpers.asyncHandler(async (req, res) => {
     const result = await productService.getProducts(req.query);
 
@@ -148,13 +317,90 @@ class AdminController {
     response.send(res);
   });
 
-  // Get system statistics for admin monitoring
-  // Workflow:
-  // 1. Fetch data from multiple services in parallel
-  // 2. Calculate system performance metrics
-  // 3. Structure system statistics data
-  // 4. Return success response with system stats
+  // Get a single product by ID
+  getProductById = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const product = await productService.getProductById(id);
+
+    const response = ApiResponse.success("Product retrieved", { product });
+    response.send(res);
+  });
+
+  // Create a new product
+  createProduct = Helpers.asyncHandler(async (req, res) => {
+    const productData = req.body;
+    const numericPrice = Number(productData?.price);
+
+    if (!Number.isFinite(numericPrice) || numericPrice < 0.01) {
+      const response = ApiResponse.badRequest(
+        "Price must be at least $0.01",
+      );
+      return response.send(res);
+    }
+
+    productData.price = numericPrice;
+
+    const product = await productService.createProduct(productData);
+
+    const response = ApiResponse.success("Product created", { product });
+    response.send(res);
+  });
+
+  // Update a product
+  updateProduct = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (updateData?.price !== undefined) {
+      const numericPrice = Number(updateData.price);
+      if (!Number.isFinite(numericPrice) || numericPrice < 0.01) {
+        const response = ApiResponse.badRequest(
+          "Price must be at least $0.01",
+        );
+        return response.send(res);
+      }
+      updateData.price = numericPrice;
+    }
+
+    const product = await productService.updateProduct(id, updateData);
+
+    const response = ApiResponse.success("Product updated", { product });
+    response.send(res);
+  });
+
+  // Delete a product
+  deleteProduct = Helpers.asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    await productService.deleteProduct(id);
+
+    const response = ApiResponse.success("Product deleted");
+    response.send(res);
+  });
+
+  // Get system statistics
   getSystemStats = Helpers.asyncHandler(async (req, res) => {
+    const dbCheckStartedAt = Date.now();
+    let database = {
+      status: "Disconnected",
+      responseTimeMs: null,
+    };
+
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      database = {
+        status: "Connected",
+        responseTimeMs: Date.now() - dbCheckStartedAt,
+      };
+    } catch (error) {
+      database = {
+        status: "Disconnected",
+        responseTimeMs: null,
+        error: error.message,
+      };
+    }
+
     const [
       totalOrders,
       totalRevenue,
@@ -173,16 +419,30 @@ class AdminController {
       productService.getProductStats().then((stats) => stats.lowStockProducts),
     ]);
 
+    const loadAverage = os.loadavg();
+    const cpuCores = os.cpus()?.length || 1;
+    const serverStatus = loadAverage[0] < cpuCores ? "Healthy" : "High Load";
+
     const systemStats = {
       totals: {
         orders: totalOrders,
-        revenue: `$${totalRevenue}`,
+        revenue: totalRevenue,
         products: totalProducts,
         users: totalUsers,
       },
       pending: {
         orders: pendingOrders,
         lowStock: lowStockCount,
+      },
+      database,
+      server: {
+        status: serverStatus,
+        loadAverage,
+        cpuCores,
+      },
+      api: {
+        status: "Online",
+        timestamp: new Date().toISOString(),
       },
       performance: {
         uptime: process.uptime(),
@@ -199,14 +459,7 @@ class AdminController {
     response.send(res);
   });
 
-  // Admin-only product operations
   // Bulk update products
-  // Workflow:
-  // 1. Extract updates array from request body
-  // 2. Validate that updates is an array
-  // 3. Process each update individually
-  // 4. Track success/failure for each update
-  // 5. Return success response with results
   bulkUpdateProducts = Helpers.asyncHandler(async (req, res) => {
     const { updates } = req.body;
 
@@ -235,13 +488,7 @@ class AdminController {
     response.send(res);
   });
 
-  // Admin-only user operations
-  // Send bulk email to users
-  // Workflow:
-  // 1. Extract subject, message, and userIds from request body
-  // 2. Validate required parameters
-  // 3. Simulate email sending (in production, would integrate with email service)
-  // 4. Return success response with email details
+  // Send bulk email
   sendBulkEmail = Helpers.asyncHandler(async (req, res) => {
     const { subject, message, userIds } = req.body;
 
@@ -252,9 +499,6 @@ class AdminController {
       return response.send(res);
     }
 
-    // In a real implementation, this would send emails to all specified users
-    // For now, just simulate
-
     const response = ApiResponse.success("Bulk email queued for sending", {
       recipients: userIds?.length || "all users",
       subject,
@@ -264,13 +508,6 @@ class AdminController {
   });
 
   // Export data
-  // Export data in different formats
-  // Workflow:
-  // 1. Extract export type and format from query params
-  // 2. Fetch data based on export type
-  // 3. Format data according to requested format (JSON or CSV)
-  // 4. Set appropriate headers for file download
-  // 5. Return formatted data
   exportData = Helpers.asyncHandler(async (req, res) => {
     const { type, format = "json" } = req.query;
 
@@ -302,7 +539,6 @@ class AdminController {
     }
 
     if (format === "csv") {
-      // Convert to CSV (simplified)
       let csv = "";
       if (data.length > 0) {
         const headers = Object.keys(data[0]).join(",");
@@ -323,7 +559,6 @@ class AdminController {
       );
       return res.send(csv);
     } else {
-      // JSON format
       const response = ApiResponse.success("Data exported successfully", {
         type,
         format,

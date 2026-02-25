@@ -1,310 +1,403 @@
-const { prisma } = require("../config/db.js");
+const { prisma } = require("../config/db");
 
-// ProductController handles all product-related operations
-// Workflow:
-// 1. Extract required data from request
-// 2. Perform database operations through Prisma
-// 3. Handle errors with appropriate status codes
-// 4. Return consistent response format with status and data/message
+// Helper function to format product response
+const formatProductResponse = (product) => {
+  if (!product) return null;
 
-// Get all keychains with optional filtering
-// Workflow:
-// 1. Extract filter and pagination parameters from query
-// 2. Build filter object based on provided parameters
-// 3. Calculate pagination offset
-// 4. Query database with filters and pagination
-// 5. Return success response with products and pagination info
-const getAllKeychains = async (req, res) => {
+  return {
+    id: product.id,
+    name: product.name,
+    description: product.description || "",
+    price: parseFloat(product.price),
+    stock_quantity: product.stock || 0,
+    category: product.category || "Uncategorized",
+    color: product.color || "Silver",
+    material: product.material || "",
+    sku: product.sku || "",
+    image_url: product.images?.[0] || "",
+    images: product.images || [],
+    is_featured: product.isFeatured || false,
+    is_active: product.isActive !== false,
+    created_at: product.createdAt,
+    updated_at: product.updatedAt,
+  };
+};
+
+// GET /api/products - Get all products with filtering
+const getAllProducts = async (req, res) => {
   try {
     const {
       category,
       minPrice,
       maxPrice,
       featured,
+      search,
       page = 1,
       limit = 10,
+      sortBy = "createdAt",
+      sortOrder = "desc",
     } = req.query;
 
-    // Build filter object
-    const filter = {};
+    // Build filter
+    const where = { isActive: true };
 
-    if (category) {
-      filter.category = category;
-    }
+    if (category) where.category = category;
+    if (featured === "true") where.isFeatured = true;
 
+    // Price range filter
     if (minPrice || maxPrice) {
-      filter.price = {};
-      if (minPrice) filter.price.gte = parseFloat(minPrice);
-      if (maxPrice) filter.price.lte = parseFloat(maxPrice);
+      where.price = {};
+      if (minPrice) where.price.gte = parseFloat(minPrice);
+      if (maxPrice) where.price.lte = parseFloat(maxPrice);
     }
 
-    if (featured === "true") {
-      filter.isFeatured = true;
+    // Search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
+      ];
     }
 
-    // Calculate pagination
+    // Pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
+    const take = parseInt(limit);
 
-    const keychains = await prisma.product.findMany({
-      where: filter,
-      skip,
-      take: parseInt(limit),
-      orderBy: { createdAt: "desc" },
-    });
-
-    const total = await prisma.product.count({ where: filter });
+    // Execute queries
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { [sortBy]: sortOrder },
+      }),
+      prisma.product.count({ where }),
+    ]);
 
     res.status(200).json({
-      status: "success",
-      data: {
-        keychains,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit)),
-        },
+      success: true,
+      data: products.map(formatProductResponse),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
       },
     });
   } catch (error) {
+    console.error("❌ GetAllProducts Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to fetch products",
+      error: error.message,
     });
   }
 };
 
-// Get single keychain by ID
-// Workflow:
-// 1. Extract keychain ID from params
-// 2. Query database for the keychain
-// 3. Handle case where keychain is not found
-// 4. Return success response with keychain data
-const getKeychainById = async (req, res) => {
+// GET /api/products/:id - Get single product
+const getProductById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const keychain = await prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id },
     });
 
-    if (!keychain) {
+    if (!product) {
       return res.status(404).json({
-        status: "error",
-        message: "Keychain not found",
+        success: false,
+        message: "Product not found",
       });
     }
 
     res.status(200).json({
-      status: "success",
-      data: { keychain },
+      success: true,
+      data: formatProductResponse(product),
     });
   } catch (error) {
+    console.error("❌ GetProductById Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to fetch product",
+      error: error.message,
     });
   }
 };
 
-// Create new keychain (admin only)
-// Workflow:
-// 1. Extract keychain data from request body
-// 2. Parse and validate numeric values
-// 3. Create new keychain in database
-// 4. Return success response with created keychain
-const createKeychain = async (req, res) => {
+// POST /api/products - Create new product
+const createProduct = async (req, res) => {
   try {
-    const { name, description, price, stock, images, category, isFeatured } =
-      req.body;
+    const {
+      name,
+      description,
+      price,
+      stock,
+      images,
+      category,
+      color,
+      material,
+      sku,
+      isFeatured,
+      isActive,
+    } = req.body;
 
-    const keychain = await prisma.product.create({
+    // Validate required fields
+    if (!name || !price) {
+      return res.status(400).json({
+        success: false,
+        message: "Name and price are required fields",
+      });
+    }
+
+    // Check if SKU is unique (if provided)
+    if (sku) {
+      const existingProduct = await prisma.product.findUnique({
+        where: { sku },
+      });
+      if (existingProduct) {
+        return res.status(400).json({
+          success: false,
+          message: "Product with this SKU already exists",
+        });
+      }
+    }
+
+    // Create product
+    const product = await prisma.product.create({
       data: {
         name,
-        description,
+        description: description || "",
         price: parseFloat(price),
-        stock: parseInt(stock),
+        stock: parseInt(stock) || 0,
         images: images || [],
-        category,
+        category: category || null,
+        color: color || null,
+        material: material || null,
+        sku: sku || null,
         isFeatured: isFeatured || false,
+        isActive: isActive !== undefined ? isActive : true,
       },
     });
 
     res.status(201).json({
-      status: "success",
-      data: { keychain },
+      success: true,
+      message: "Product created successfully",
+      data: formatProductResponse(product),
     });
   } catch (error) {
+    console.error("❌ CreateProduct Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to create product",
+      error: error.message,
     });
   }
 };
 
-// Update keychain (admin only)
-// Workflow:
-// 1. Extract keychain ID from params and update data from body
-// 2. Check if keychain exists
-// 3. Parse and validate numeric values
-// 4. Update keychain in database
-// 5. Return success response with updated keychain
-const updateKeychain = async (req, res) => {
+// PUT /api/products/:id - Update product
+const updateProduct = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, price, stock, images, category, isFeatured } =
-      req.body;
+    const updateData = req.body;
 
-    // Check if keychain exists
-    const existingKeychain = await prisma.product.findUnique({
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
       where: { id },
     });
 
-    if (!existingKeychain) {
+    if (!existingProduct) {
       return res.status(404).json({
-        status: "error",
-        message: "Keychain not found",
+        success: false,
+        message: "Product not found",
       });
     }
 
-    const updatedKeychain = await prisma.product.update({
+    // Check SKU uniqueness if being updated
+    if (updateData.sku && updateData.sku !== existingProduct.sku) {
+      const skuExists = await prisma.product.findUnique({
+        where: { sku: updateData.sku },
+      });
+      if (skuExists) {
+        return res.status(400).json({
+          success: false,
+          message: "Product with this SKU already exists",
+        });
+      }
+    }
+
+    // Prepare update data
+    const data = {};
+    if (updateData.name !== undefined) data.name = updateData.name;
+    if (updateData.description !== undefined)
+      data.description = updateData.description;
+    if (updateData.price !== undefined)
+      data.price = parseFloat(updateData.price);
+    if (updateData.stock !== undefined) data.stock = parseInt(updateData.stock);
+    if (updateData.images !== undefined) data.images = updateData.images;
+    if (updateData.category !== undefined) data.category = updateData.category;
+    if (updateData.color !== undefined) data.color = updateData.color;
+    if (updateData.material !== undefined) data.material = updateData.material;
+    if (updateData.sku !== undefined) data.sku = updateData.sku;
+    if (updateData.isFeatured !== undefined)
+      data.isFeatured = updateData.isFeatured;
+    if (updateData.isActive !== undefined) data.isActive = updateData.isActive;
+
+    // Update product
+    const updatedProduct = await prisma.product.update({
       where: { id },
-      data: {
-        ...(name && { name }),
-        ...(description && { description }),
-        ...(price && { price: parseFloat(price) }),
-        ...(stock !== undefined && { stock: parseInt(stock) }),
-        ...(images && { images }),
-        ...(category && { category }),
-        ...(isFeatured !== undefined && { isFeatured }),
-      },
+      data,
     });
 
     res.status(200).json({
-      status: "success",
-      data: { keychain: updatedKeychain },
+      success: true,
+      message: "Product updated successfully",
+      data: formatProductResponse(updatedProduct),
     });
   } catch (error) {
+    console.error("❌ UpdateProduct Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to update product",
+      error: error.message,
     });
   }
 };
 
-// Delete keychain (admin only)
-// Workflow:
-// 1. Extract keychain ID from params
-// 2. Check if keychain exists
-// 3. Delete keychain from database
-// 4. Return success response with confirmation message
-const deleteKeychain = async (req, res) => {
+// DELETE /api/products/:id - Delete product
+const deleteProduct = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if keychain exists
-    const existingKeychain = await prisma.product.findUnique({
+    // Check if product exists
+    const existingProduct = await prisma.product.findUnique({
       where: { id },
     });
 
-    if (!existingKeychain) {
+    if (!existingProduct) {
       return res.status(404).json({
-        status: "error",
-        message: "Keychain not found",
+        success: false,
+        message: "Product not found",
       });
     }
 
+    // Check if product is in any orders
+    const orderItems = await prisma.orderItem.count({
+      where: { productId: id },
+    });
+
+    if (orderItems > 0) {
+      // Soft delete - just mark as inactive
+      await prisma.product.update({
+        where: { id },
+        data: { isActive: false },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Product deactivated successfully (has order history)",
+      });
+    }
+
+    // Hard delete if no references
     await prisma.product.delete({
       where: { id },
     });
 
     res.status(200).json({
-      status: "success",
-      message: "Keychain deleted successfully",
+      success: true,
+      message: "Product deleted successfully",
     });
   } catch (error) {
+    console.error("❌ DeleteProduct Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to delete product",
+      error: error.message,
     });
   }
 };
 
-// Get featured keychains
-// Workflow:
-// 1. Extract limit from query params
-// 2. Query database for featured keychains
-// 3. Return success response with featured keychains
-const getFeaturedKeychains = async (req, res) => {
+// GET /api/products/featured - Get featured products
+const getFeaturedProducts = async (req, res) => {
   try {
     const { limit = 6 } = req.query;
 
-    const keychains = await prisma.product.findMany({
-      where: { isFeatured: true },
+    const products = await prisma.product.findMany({
+      where: {
+        isFeatured: true,
+        isActive: true,
+      },
       take: parseInt(limit),
       orderBy: { createdAt: "desc" },
     });
 
     res.status(200).json({
-      status: "success",
-      data: { keychains },
+      success: true,
+      data: products.map(formatProductResponse),
     });
   } catch (error) {
+    console.error("❌ GetFeaturedProducts Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to fetch featured products",
+      error: error.message,
     });
   }
 };
 
-// Get keychains by category
-// Workflow:
-// 1. Extract category from params and pagination from query
-// 2. Calculate pagination offset
-// 3. Query database for keychains in specified category
-// 4. Return success response with keychains and pagination info
-const getKeychainsByCategory = async (req, res) => {
+// GET /api/products/category/:category - Get products by category
+const getProductsByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { page = 1, limit = 10 } = req.query;
 
     const skip = (parseInt(page) - 1) * parseInt(limit);
 
-    const keychains = await prisma.product.findMany({
-      where: { category },
-      skip,
-      take: parseInt(limit),
-      orderBy: { createdAt: "desc" },
-    });
-
-    const total = await prisma.product.count({ where: { category } });
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where: {
+          category,
+          isActive: true,
+        },
+        skip,
+        take: parseInt(limit),
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.product.count({
+        where: {
+          category,
+          isActive: true,
+        },
+      }),
+    ]);
 
     res.status(200).json({
-      status: "success",
-      data: {
-        keychains,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / parseInt(limit)),
-        },
+      success: true,
+      data: products.map(formatProductResponse),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit)),
       },
     });
   } catch (error) {
+    console.error("❌ GetProductsByCategory Error:", error);
     res.status(500).json({
-      status: "error",
-      message: error.message,
+      success: false,
+      message: "Failed to fetch products by category",
+      error: error.message,
     });
   }
 };
 
 module.exports = {
-  getAllKeychains,
-  getKeychainById,
-  createKeychain,
-  updateKeychain,
-  deleteKeychain,
-  getFeaturedKeychains,
-  getKeychainsByCategory,
+  getAllProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  getFeaturedProducts,
+  getProductsByCategory,
 };

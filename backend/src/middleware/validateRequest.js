@@ -1,20 +1,29 @@
-const validateRequest = (schema) => {
+const validateRequest = (schema, property = "body") => {
   return (req, res, next) => {
-    const result = schema.safeParse(req.body);
+    try {
+      // Zod validation
+      const result = schema.safeParse(req[property]);
 
-    if (!result.success) {
-      const formatted = result.error.format();
+      if (!result.success) {
+        const errors = result.error.errors.map((err) => ({
+          field: err.path.join("."),
+          message: err.message,
+        }));
 
-      const flatErrors = Object.values(formatted)
-        .flat()
-        .filter(Boolean)
-        .map((err) => err._errors)
-        .flat();
+        return res.status(400).json({
+          success: false,
+          message: "Validation error",
+          errors,
+        });
+      }
 
-      return res.status(400).json({ message: flatErrors.join(", ") });
+      // Replace with validated values
+      req[property] = result.data;
+      next();
+    } catch (err) {
+      console.error("Validation middleware error:", err);
+      next(err);
     }
-
-    next();
   };
 };
 

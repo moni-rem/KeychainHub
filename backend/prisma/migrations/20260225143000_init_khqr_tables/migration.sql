@@ -1,0 +1,22 @@
+DO $$
+BEGIN
+  CREATE TYPE "PaymentMethod" AS ENUM ('khqr', 'credit_card');
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE "Order"
+  ADD COLUMN IF NOT EXISTS "currency" VARCHAR(3) NOT NULL DEFAULT 'USD',
+  ADD COLUMN IF NOT EXISTS "payment_method" "PaymentMethod" NOT NULL DEFAULT 'credit_card',
+  ADD COLUMN IF NOT EXISTS "transaction_id" VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS "paid_at" TEXT,
+  ADD COLUMN IF NOT EXISTS "qr_code" TEXT,
+  ADD COLUMN IF NOT EXISTS "qr_md5" VARCHAR(32),
+  ADD COLUMN IF NOT EXISTS "qr_expiration" BIGINT,
+  ADD COLUMN IF NOT EXISTS "bakongHash" VARCHAR(255),
+  ADD COLUMN IF NOT EXISTS "from_account_id" VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS "to_account_id" VARCHAR(100),
+  ADD COLUMN IF NOT EXISTS "description" TEXT,
+  ADD COLUMN IF NOT EXISTS "paid" BOOLEAN NOT NULL DEFAULT false;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "Order_qr_md5_key" ON "Order"("qr_md5");

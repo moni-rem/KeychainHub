@@ -81,9 +81,23 @@ const changePasswordSchema = z.object({
     .max(50, "New password cannot exceed 50 characters"),
 });
 
+/**
+ * Validation schema for making a user admin
+ * Validates email format for admin elevation
+ */
+const makeAdminSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .min(1, "Email is required")
+    .email("Please provide a valid email")
+    .toLowerCase(),
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   updateProfileSchema,
   changePasswordSchema,
+  makeAdminSchema, // Added this
 };

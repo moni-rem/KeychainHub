@@ -1,119 +1,70 @@
 const jwt = require("jsonwebtoken");
-const { prisma } = require("../config/db.js");
+const { prisma } = require("../config/db"); // Changed from database.js to db.js
+const env = require("../config/env");
 
-// Read the token from the request
-// Check if token is valid
 const authMiddleware = async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  } else if (req.cookies?.jwt) {
-    token = req.cookies.jwt;
-  }
-
-  if (!token) {
-    return res.status(401).json({ error: "Not authorized, no token provided" });
-  }
-
   try {
-    // Verify token and extract the user Id
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "No token provided",
+      });
+    }
+
+    const decoded = jwt.verify(token, env.jwtSecret);
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
     });
 
     if (!user) {
-      return res.status(401).json({ error: "User no longer exists" });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Not authorized, token failed" });
-  }
-};
-
-// Admin authentication middleware
-const adminAuth = async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  } else if (req.cookies?.jwt) {
-    token = req.cookies.jwt;
-  }
-
-  if (!token) {
-    return res.status(401).json({ error: "Not authorized, no token provided" });
-  }
-
-  try {
-    // Verify token with admin secret
-    const decoded = jwt.verify(
-      token,
-      process.env.ADMIN_JWT_SECRET || process.env.JWT_SECRET,
-    );
-
-    const user = await prisma.user.findUnique({
-      where: {
-        id: decoded.id,
-        isAdmin: true,
-      },
-    });
-
-    if (!user) {
-      return res.status(403).json({ error: "Admin access required" });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: "Not authorized, token failed" });
-  }
-};
-
-// Optional authentication middleware (doesn't fail if no token)
-const optionalAuth = async (req, res, next) => {
-  let token;
-
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith("Bearer")
-  ) {
-    token = req.headers.authorization.split(" ")[1];
-  } else if (req.cookies?.jwt) {
-    token = req.cookies.jwt;
-  }
-
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      const user = await prisma.user.findUnique({
-        where: { id: decoded.id },
+      return res.status(401).json({
+        success: false,
+        message: "User not found",
       });
-
-      if (user) {
-        req.user = user;
-      }
-    } catch (err) {
-      // Token is invalid, but that's okay for optional auth
     }
-  }
 
-  next();
+    req.user = user;
+    req.userId = user.id;
+    next();
+  } catch (error) {
+    console.error("Auth error:", error);
+    return res.status(401).json({
+      success: false,
+      message: "Invalid token",
+    });
+  }
+};
+
+const adminMiddleware = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Admin middleware error:", error);
+    return res.status(403).json({
+      success: false,
+      message: "Access denied",
+    });
+  }
 };
 
 module.exports = {
   authMiddleware,
-  auth: authMiddleware, // For backward compatibility
-  adminAuth,
-  optionalAuth,
+  adminMiddleware,
 };

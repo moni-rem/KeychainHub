@@ -1,10 +1,8 @@
 import { useState } from "react";
-import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import { FaEye, FaEyeSlash, FaUserPlus } from "react-icons/fa";
 import { useUserAuth } from "../../context/UserAuthContext";
-
-const API_BASE = "http://localhost:5000";
+import api from "../../api/axios";
 
 export default function UserRegister() {
   const navigate = useNavigate();
@@ -19,6 +17,14 @@ export default function UserRegister() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const getApiErrorMessage = (err, fallback) => {
+    const data = err?.response?.data;
+    if (Array.isArray(data?.errors) && data.errors.length > 0) {
+      return data.errors[0]?.message || fallback;
+    }
+    return data?.message || data?.error || fallback;
+  };
 
   const validate = () => {
     if (!name || !email || !password || !confirm) return "Please fill in all fields.";
@@ -38,37 +44,49 @@ export default function UserRegister() {
 
     try {
       setLoading(true);
+      const payloadInput = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+      };
 
-      // ✅ Correct register endpoint
-      await axios.post(
-        `${API_BASE}/api/auth/register`,
-        { name, email, password },
-        { withCredentials: true }
-      );
+      // Register
+      const registerRes = await api.post("/auth/register", payloadInput);
+      const registerPayload =
+        registerRes?.data?.user && registerRes?.data?.token
+          ? registerRes.data
+          : registerRes?.data || {};
+      const registerToken = registerPayload?.token;
+      const registerUser = registerPayload?.user;
 
-      // ✅ Auto-login after register (so user doesn't need to login again)
-      const resLogin = await axios.post(
-        `${API_BASE}/api/auth/login`,
-        { email, password },
-        { withCredentials: true }
-      );
+      // Prefer token returned by register response for instant login.
+      if (registerToken && registerUser) {
+        login({ user: registerUser, token: registerToken });
+        navigate("/", { replace: true });
+        return;
+      }
 
-      const token = resLogin.data?.data?.token;
-      const user = resLogin.data?.data?.user;
+      // Fallback: login call if register response didn't contain auth payload.
+      const resLogin = await api.post("/auth/login", {
+        email: payloadInput.email,
+        password,
+      });
+
+      const payload =
+        resLogin?.data?.user && resLogin?.data?.token
+          ? resLogin.data
+          : resLogin?.data || {};
+      const token = payload?.token;
+      const user = payload?.user;
 
       if (token && user) {
         login({ user, token }); // uses your updated context
         navigate("/", { replace: true });
       } else {
-        // fallback: go to login page
         navigate("/login");
       }
     } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-          err?.response?.data?.sqlMessage ||
-          "Register failed"
-      );
+      setError(getApiErrorMessage(err, "Register failed"));
     } finally {
       setLoading(false);
     }

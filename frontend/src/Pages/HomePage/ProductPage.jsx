@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import axios from "axios";
-
-const API_BASE = "http://localhost:5000";
+import productService from "../../services/productService";
+import Pagination01 from "../../components/ui/pagination-01";
 
 export default function ProductPage() {
+  const ITEMS_PER_PAGE = 8;
+
   const [products, setProducts] = useState([]);
-  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   // URL query
   const [searchParams] = useSearchParams();
   const search = (searchParams.get("search") || "").toLowerCase().trim();
+  const category = (searchParams.get("category") || "").toLowerCase().trim();
 
   // UI filters
   const [sortBy, setSortBy] = useState("newest"); // newest | az | za
@@ -24,17 +26,21 @@ export default function ProductPage() {
     setError("");
 
     try {
-      const res = await axios.get(`${API_BASE}/api/products`);
-      const list = res?.data?.data?.data || [];
-      const pg = res?.data?.data?.pagination || null;
+      const res = await productService.getAllProducts({
+        page: 1,
+        limit: 200,
+      });
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+          ? res
+          : [];
 
       setProducts(Array.isArray(list) ? list : []);
-      setPagination(pg);
     } catch (err) {
       console.log("Fetch products error:", err);
       setError(err?.response?.data?.message || err.message || "Network error");
       setProducts([]);
-      setPagination(null);
     } finally {
       setLoading(false);
     }
@@ -56,6 +62,13 @@ export default function ProductPage() {
       });
     }
 
+    // category from URL query
+    if (category) {
+      list = list.filter((p) =>
+        String(p.category || "").toLowerCase() === category,
+      );
+    }
+
     // price filter
     const min = minPrice === "" ? null : Number(minPrice);
     const max = maxPrice === "" ? null : Number(maxPrice);
@@ -69,7 +82,11 @@ export default function ProductPage() {
 
     // sorting
     if (sortBy === "newest") {
-      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      list.sort(
+        (a, b) =>
+          new Date(b.createdAt || b.created_at || 0) -
+          new Date(a.createdAt || a.created_at || 0),
+      );
     } else if (sortBy === "az") {
       list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
     } else if (sortBy === "za") {
@@ -77,7 +94,28 @@ export default function ProductPage() {
     }
 
     return list;
-  }, [products, search, sortBy, minPrice, maxPrice]);
+  }, [products, search, category, sortBy, minPrice, maxPrice]);
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE)),
+    [filteredProducts.length, ITEMS_PER_PAGE],
+  );
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, end);
+  }, [filteredProducts, currentPage, ITEMS_PER_PAGE]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, category, sortBy, minPrice, maxPrice]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   if (loading) return <p className="mt-24 text-center">Loading products...</p>;
 
@@ -89,18 +127,12 @@ export default function ProductPage() {
           <h1 className="text-3xl md:text-4xl font-bold">Shop keychains</h1>
 
           <div className="mt-3 text-sm text-gray-600 dark:text-gray-300 space-y-1">
-            {pagination ? (
-              <div>
-                Total: <b>{pagination.total}</b> • Page{" "}
-                <b>
-                  {pagination.page}/{pagination.totalPages}
-                </b>
-              </div>
-            ) : (
-              <div>
-                Showing: <b>{filteredProducts.length}</b>
-              </div>
-            )}
+            <div>
+              Total: <b>{filteredProducts.length}</b> • Page{" "}
+              <b>
+                {currentPage}/{totalPages}
+              </b>
+            </div>
 
             {search && (
               <div>
@@ -162,8 +194,8 @@ export default function ProductPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-10">
-          {filteredProducts.map((p) => {
-            const img = p.images?.[0] ? `${API_BASE}${p.images[0]}` : null;
+          {paginatedProducts.map((p) => {
+            const img = p.images?.[0] || p.image_url || null;
 
             return (
               <div
@@ -192,7 +224,7 @@ export default function ProductPage() {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="font-semibold line-clamp-1">{p.name}</div>
-                    {p.isFeatured && (
+                    {(p.isFeatured || p.is_featured) && (
                       <span className="text-xs px-2 py-1 rounded-full bg-yellow-500/20">
                         Featured
                       </span>
@@ -205,7 +237,9 @@ export default function ProductPage() {
 
                   <div className="mt-3 flex items-center justify-between">
                     <div className="font-bold">${Number(p.price).toFixed(2)}</div>
-                    <div className="text-sm opacity-70">Stock: {p.stock}</div>
+                    <div className="text-sm opacity-70">
+                      Stock: {p.stock_quantity}
+                    </div>
                   </div>
 
                   <div className="text-xs opacity-60 mt-2">
@@ -224,6 +258,15 @@ export default function ProductPage() {
           })}
         </div>
       )}
+
+      <Pagination01
+        page={currentPage}
+        onPageChange={setCurrentPage}
+        totalItems={filteredProducts.length}
+        itemsPerPage={ITEMS_PER_PAGE}
+        siblingCount={1}
+        showEdges
+      />
     </div>
   );
 }

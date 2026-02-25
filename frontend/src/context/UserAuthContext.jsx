@@ -14,12 +14,20 @@ export function UserAuthProvider({ children }) {
 
   // ✅ Load user + token on app start (page refresh safe)
   useEffect(() => {
-    const savedUser = localStorage.getItem(USER_KEY);
-    const savedToken = localStorage.getItem(TOKEN_KEY);
+    try {
+      const savedUser = localStorage.getItem(USER_KEY);
+      const savedToken = localStorage.getItem(TOKEN_KEY);
 
-    if (savedUser && savedToken) {
-      setUser(JSON.parse(savedUser));
-      setToken(savedToken);
+      if (savedUser && savedToken) {
+        const parsedUser = JSON.parse(savedUser);
+        setUser(parsedUser);
+        setToken(savedToken);
+      }
+    } catch {
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+      setUser(null);
+      setToken(null);
     }
 
     setLoading(false);
@@ -46,6 +54,7 @@ export function UserAuthProvider({ children }) {
 
     localStorage.removeItem(USER_KEY);
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("jwt");
   }
 
   return (
