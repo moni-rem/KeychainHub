@@ -5,10 +5,11 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   email     String   @unique
   password  String
   name      String?
@@ -27,15 +28,32 @@ model User {
   @@index([createdAt])
 }
 
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([createdAt])
+}
+
 model Product {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   name        String
-  description String
+  description String?
   price       Float
   stock       Int      @default(0)
   images      String[]
   category    String?
+  color       String?
+  material    String?
+  sku         String?  @unique
   isFeatured  Boolean  @default(false)
+  isActive    Boolean  @default(true)
   
   cartItems   CartItem[]
   orderItems  OrderItem[]
@@ -50,7 +68,7 @@ model Product {
 }
 
 model Cart {
-  id        String    @id @default(cuid())
+  id        String    @id @default(uuid())
   userId    String    @unique
   user      User      @relation(fields: [userId], references: [id])
   items     CartItem[]
@@ -59,7 +77,7 @@ model Cart {
 }
 
 model CartItem {
-  id        String  @id @default(cuid())
+  id        String  @id @default(uuid())
   cartId    String
   cart      Cart    @relation(fields: [cartId], references: [id])
   productId String
@@ -69,25 +87,43 @@ model CartItem {
 }
 
 model Order {
-  id        String     @id @default(cuid())
-  userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  items     OrderItem[]
-  total     Float
-  status    String     @default("pending")
-  address   String?
-  phone     String?
-  notes     String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id             String        @id @default(uuid())
+  userId         String
+  user           User          @relation(fields: [userId], references: [id])
+  items          OrderItem[]
+  total          Float
+  status         String        @default("pending")
+  currency       String        @default("USD") @db.VarChar(3)
+  paymentMethod  PaymentMethod @default(credit_card) @map("payment_method")
+  transactionId  String?       @map("transaction_id") @db.VarChar(255)
+  paidAt         String?       @map("paid_at") @db.Text
+  qrCode         String?       @map("qr_code") @db.Text
+  qrMd5          String?       @unique @map("qr_md5") @db.VarChar(32)
+  qrExpiration   BigInt?       @map("qr_expiration")
+  bakongHash     String?       @db.VarChar(255)
+  fromAccountId  String?       @map("from_account_id") @db.VarChar(100)
+  toAccountId    String?       @map("to_account_id") @db.VarChar(100)
+  description    String?       @db.Text
+  paid           Boolean       @default(false)
+  address        String?
+  phone          String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
 }
 
 model OrderItem {
-  id        String  @id @default(cuid())
+  id        String  @id @default(uuid())
   orderId   String
   order     Order   @relation(fields: [orderId], references: [id])
   productId String
   product   Product @relation(fields: [productId], references: [id])
   quantity  Int
   price     Float
+}
+
+enum PaymentMethod {
+  khqr
+  credit_card
 }

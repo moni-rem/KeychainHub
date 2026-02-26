@@ -1,4 +1,4 @@
-const prisma = require("../config/database");
+const { prisma } = require("../config/db");
 const ApiError = require("../utils/apiError");
 const Helpers = require("../utils/helpers");
 const productService = require("./productService");
@@ -64,55 +64,60 @@ class CartService {
       throw new ApiError(400, "Insufficient stock");
     }
 
-    // Get or create cart
-    let cart = await prisma.cart.findUnique({
-      where: { userId },
-    });
-
-    if (!cart) {
-      cart = await prisma.cart.create({
-        data: { userId },
+    // Add to cart with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Get or create cart
+      let cart = await tx.cart.findUnique({
+        where: { userId },
       });
-    }
 
-    // Check if item already in cart
-    const existingItem = await prisma.cartItem.findFirst({
-      where: {
-        cartId: cart.id,
-        productId,
-      },
-    });
-
-    let cartItem;
-    if (existingItem) {
-      // Calculate new quantity
-      const newQuantity = existingItem.quantity + quantity;
-
-      // Check stock availability for new quantity
-      if (product.stock < newQuantity) {
-        throw new ApiError(
-          400,
-          `Cannot add ${quantity} more. Only ${product.stock - existingItem.quantity} available in stock.`,
-        );
+      if (!cart) {
+        cart = await tx.cart.create({
+          data: { userId },
+        });
       }
 
-      // Update quantity
-      cartItem = await prisma.cartItem.update({
-        where: { id: existingItem.id },
-        data: { quantity: newQuantity },
-        include: { product: true },
-      });
-    } else {
-      // Create new cart item
-      cartItem = await prisma.cartItem.create({
-        data: {
+      // Check if item already in cart
+      const existingItem = await tx.cartItem.findFirst({
+        where: {
           cartId: cart.id,
           productId,
-          quantity,
         },
-        include: { product: true },
       });
-    }
+
+      let cartItem;
+      if (existingItem) {
+        // Calculate new quantity
+        const newQuantity = existingItem.quantity + quantity;
+
+        // Check stock availability for new quantity
+        if (product.stock < newQuantity) {
+          throw new ApiError(
+            400,
+            `Cannot add ${quantity} more. Only ${product.stock - existingItem.quantity} available in stock.`,
+          );
+        }
+
+        // Update quantity
+        cartItem = await tx.cartItem.update({
+          where: { id: existingItem.id },
+          data: { quantity: newQuantity },
+          include: { product: true },
+        });
+      } else {
+        // Create new cart item
+        cartItem = await tx.cartItem.create({
+          data: {
+            cartId: cart.id,
+            productId,
+            quantity,
+          },
+          include: { product: true },
+        });
+      }
+
+      return cartItem;
+    });
 
     return this.getCart(userId);
   }
@@ -176,9 +181,14 @@ class CartService {
       throw new ApiError(404, "Cart item not found");
     }
 
-    // Remove item
-    await prisma.cartItem.delete({
-      where: { id: itemId },
+    // Remove item with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Remove item
+      await tx.cartItem.delete({
+        where: { id: itemId },
+      });
+
+      return { message: "Item removed from cart" };
     });
 
     return this.getCart(userId);
@@ -193,9 +203,14 @@ class CartService {
       throw new ApiError(404, "Cart not found");
     }
 
-    // Delete all cart items
-    await prisma.cartItem.deleteMany({
-      where: { cartId: cart.id },
+    // Clear cart with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete all cart items
+      await tx.cartItem.deleteMany({
+        where: { cartId: cart.id },
+      });
+
+      return { message: "Cart cleared" };
     });
 
     return this.getCart(userId);

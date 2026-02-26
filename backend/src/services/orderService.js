@@ -1,4 +1,4 @@
-const prisma = require("../config/database");
+const { prisma } = require("../config/db");
 const ApiError = require("../utils/apiError");
 const Helpers = require("../utils/helpers");
 const cartService = require("./cartService");
@@ -154,12 +154,17 @@ class OrderService {
       );
     }
 
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: { status },
+    // Update order status with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: { status },
+      });
+
+      return order;
     });
 
-    return order;
+    return result;
   }
 
   async getAllOrders(query = {}) {
@@ -396,6 +401,7 @@ class OrderService {
     const totalSales = orders.reduce((sum, order) => sum + order.total, 0);
     const totalOrders = orders.length;
     const averageOrderValue = totalOrders > 0 ? totalSales / totalOrders : 0;
+    const activeCustomers = new Set(orders.map((order) => order.userId)).size;
 
     // Get daily sales
     const dailySales = {};
@@ -431,6 +437,7 @@ class OrderService {
     return {
       totalSales: parseFloat(totalSales.toFixed(2)),
       totalOrders,
+      activeCustomers,
       averageOrderValue: parseFloat(averageOrderValue.toFixed(2)),
       dailySales: Object.entries(dailySales).map(([date, sales]) => ({
         date,

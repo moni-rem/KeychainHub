@@ -1,69 +1,93 @@
-const { body, query } = require("express-validator");
-const constants = require("../config/constants");
+const { z } = require("zod");
 
-const orderValidator = {
-  createOrder: [
-    body("address")
-      .trim()
-      .notEmpty()
-      .withMessage("Address is required")
-      .isLength({ min: 10 })
-      .withMessage("Address must be at least 10 characters")
-      .isLength({ max: 500 })
-      .withMessage("Address cannot exceed 500 characters"),
-
-    body("phone")
-      .trim()
-      .notEmpty()
-      .withMessage("Phone number is required")
-      .isLength({ min: 10 })
-      .withMessage("Phone number must be at least 10 characters")
-      .isLength({ max: 20 })
-      .withMessage("Phone number cannot exceed 20 characters"),
-
-    body("notes")
-      .optional()
-      .trim()
-      .isLength({ max: 500 })
-      .withMessage("Notes cannot exceed 500 characters"),
-  ],
-
-  updateOrderStatus: [
-    body("status")
-      .isIn(Object.values(constants.ORDER_STATUS))
-      .withMessage(
-        `Status must be one of: ${Object.values(constants.ORDER_STATUS).join(", ")}`,
-      ),
-  ],
-
-  orderQuery: [
-    query("page")
-      .optional()
-      .isInt({ min: 1 })
-      .withMessage("Page must be a positive integer"),
-
-    query("limit")
-      .optional()
-      .isInt({ min: 1, max: 50 })
-      .withMessage("Limit must be between 1 and 50"),
-
-    query("status")
-      .optional()
-      .isIn(Object.values(constants.ORDER_STATUS))
-      .withMessage(
-        `Status must be one of: ${Object.values(constants.ORDER_STATUS).join(", ")}`,
-      ),
-
-    query("startDate")
-      .optional()
-      .isISO8601()
-      .withMessage("Start date must be a valid date"),
-
-    query("endDate")
-      .optional()
-      .isISO8601()
-      .withMessage("End date must be a valid date"),
-  ],
+// Order status enum values
+const ORDER_STATUS = {
+  PENDING: "PENDING",
+  PROCESSING: "PROCESSING",
+  SHIPPED: "SHIPPED",
+  DELIVERED: "DELIVERED",
+  CANCELLED: "CANCELLED",
 };
 
-module.exports = orderValidator;
+/**
+ * Validation schema for creating an order
+ * Validates address, phone, and optional notes
+ */
+const createOrderSchema = z.object({
+  address: z
+    .string()
+    .trim()
+    .min(1, "Address is required")
+    .min(10, "Address must be at least 10 characters")
+    .max(500, "Address cannot exceed 500 characters"),
+  phone: z
+    .string()
+    .trim()
+    .min(1, "Phone number is required")
+    .min(10, "Phone number must be at least 10 characters")
+    .max(20, "Phone number cannot exceed 20 characters"),
+  notes: z
+    .string()
+    .trim()
+    .max(500, "Notes cannot exceed 500 characters")
+    .optional(),
+});
+
+/**
+ * Validation schema for updating order status
+ * Validates status against allowed values
+ */
+const updateOrderStatusSchema = z.object({
+  status: z.enum(Object.values(ORDER_STATUS), {
+    errorMap: () => ({
+      message: `Status must be one of: ${Object.values(ORDER_STATUS).join(", ")}`,
+    }),
+  }),
+});
+
+/**
+ * Validation schema for order query parameters
+ * Validates pagination, status filtering, and date range
+ */
+const orderQuerySchema = z.object({
+  page: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : 1))
+    .refine((val) => val >= 1, {
+      message: "Page must be a positive integer",
+    }),
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => (val ? parseInt(val) : 10))
+    .refine((val) => val >= 1 && val <= 50, {
+      message: "Limit must be between 1 and 50",
+    }),
+  status: z
+    .enum(Object.values(ORDER_STATUS), {
+      errorMap: () => ({
+        message: `Status must be one of: ${Object.values(ORDER_STATUS).join(", ")}`,
+      }),
+    })
+    .optional(),
+  startDate: z
+    .string()
+    .optional()
+    .refine((val) => !val || !isNaN(Date.parse(val)), {
+      message: "Start date must be a valid date",
+    }),
+  endDate: z
+    .string()
+    .optional()
+    .refine((val) => !val || !isNaN(Date.parse(val)), {
+      message: "End date must be a valid date",
+    }),
+});
+
+module.exports = {
+  createOrderSchema,
+  updateOrderStatusSchema,
+  orderQuerySchema,
+  ORDER_STATUS,
+};

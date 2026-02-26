@@ -1,41 +1,141 @@
 const express = require("express");
 const router = express.Router();
+
+// Import the admin controller
 const adminController = require("../controllers/adminController");
-const { adminAuth } = require("../middleware/auth");
-const orderValidator = require("../validators/orderValidator");
-const { validateQuery } = require("../middleware/validate");
 
-// All admin routes require admin authentication
-router.use(adminAuth);
+// Import middleware
+const {
+  authMiddleware,
+  adminMiddleware,
+} = require("../middleware/authMiddleware");
+const { validateRequest } = require("../middleware/validateRequest");
+const { loginSchema } = require("../validators/authValidators");
 
-// Dashboard
-router.get("/dashboard", adminController.getDashboardStats);
+// ============= PUBLIC ROUTES (No auth required) =============
+// Admin login
+router.post("/login", validateRequest(loginSchema), adminController.adminLogin);
 
-router.get("/analytics", adminController.getSalesAnalytics);
+// ============= PROTECTED ROUTES (Auth + Admin required) =============
+// All routes below this require authentication and admin privileges
+router.use(authMiddleware);
+router.use(adminMiddleware);
 
-// Orders management
-router.get(
-  "/orders",
-  orderValidator.orderQuery,
-  validateQuery,
-  adminController.getAllOrders,
-);
+// Admin profile
+router.get("/profile", adminController.getAdminProfile);
+router.post("/logout", adminController.adminLogout);
 
-router.put("/orders/:id/status", adminController.updateOrderStatus);
+// Dashboard - check if method exists
+if (typeof adminController.getDashboardStats === "function") {
+  router.get("/dashboard", adminController.getDashboardStats);
+} else {
+  console.warn("⚠️ getDashboardStats method not found in adminController");
+  router.get("/dashboard", (req, res) => {
+    res
+      .status(501)
+      .json({ success: false, message: "Dashboard stats not implemented" });
+  });
+}
 
-// Products management
-router.get("/products", adminController.getAllProducts);
+// User management - check each method
+if (typeof adminController.getAllUsers === "function") {
+  router.get("/users", adminController.getAllUsers);
+} else {
+  console.warn("⚠️ getAllUsers method not found in adminController");
+  router.get("/users", (req, res) => {
+    res
+      .status(501)
+      .json({ success: false, message: "Get users not implemented" });
+  });
+}
 
-router.post("/products/bulk", adminController.bulkUpdateProducts);
+if (typeof adminController.getUserById === "function") {
+  router.get("/users/:id", adminController.getUserById);
+}
 
-// Users management
-router.get("/users", adminController.getAllUsers);
+if (typeof adminController.updateUser === "function") {
+  router.put("/users/:id", adminController.updateUser);
+} else {
+  console.warn("⚠️ updateUser method not found in adminController");
+  router.put("/users/:id", (req, res) => {
+    res
+      .status(501)
+      .json({ success: false, message: "Update user not implemented" });
+  });
+}
 
-router.post("/users/bulk-email", adminController.sendBulkEmail);
+if (typeof adminController.deleteUser === "function") {
+  router.delete("/users/:id", adminController.deleteUser);
+} else {
+  console.warn("⚠️ deleteUser method not found in adminController");
+  router.delete("/users/:id", (req, res) => {
+    res
+      .status(501)
+      .json({ success: false, message: "Delete user not implemented" });
+  });
+}
 
-// System
-router.get("/system", adminController.getSystemStats);
+// Product management
+if (typeof adminController.getAllProducts === "function") {
+  router.get("/products", adminController.getAllProducts);
+}
 
-router.get("/export", adminController.exportData);
+if (typeof adminController.getProductById === "function") {
+  router.get("/products/:id", adminController.getProductById);
+}
+
+if (typeof adminController.createProduct === "function") {
+  router.post("/products", adminController.createProduct);
+}
+
+if (typeof adminController.updateProduct === "function") {
+  router.put("/products/:id", adminController.updateProduct);
+}
+
+if (typeof adminController.deleteProduct === "function") {
+  router.delete("/products/:id", adminController.deleteProduct);
+}
+
+// Order management
+if (typeof adminController.getAllOrders === "function") {
+  router.get("/orders", adminController.getAllOrders);
+}
+
+if (typeof adminController.updateOrderStatus === "function") {
+  router.put("/orders/:id/status", adminController.updateOrderStatus);
+}
+
+// System stats
+if (typeof adminController.getSystemStats === "function") {
+  router.get("/system-stats", adminController.getSystemStats);
+}
+
+// Sales analytics
+if (typeof adminController.getSalesAnalytics === "function") {
+  router.get("/analytics", adminController.getSalesAnalytics);
+}
+
+// Bulk operations
+if (typeof adminController.bulkUpdateProducts === "function") {
+  router.post("/products/bulk-update", adminController.bulkUpdateProducts);
+}
+
+if (typeof adminController.sendBulkEmail === "function") {
+  router.post("/users/bulk-email", adminController.sendBulkEmail);
+}
+
+// Export data
+if (typeof adminController.exportData === "function") {
+  router.get("/export", adminController.exportData);
+}
+
+// Health check for admin routes
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "Admin routes are working",
+    user: req.user ? { id: req.user.id, isAdmin: req.user.isAdmin } : null,
+  });
+});
 
 module.exports = router;

@@ -1,55 +1,32 @@
 const express = require("express");
-const router = express.Router();
-const authController = require("../controllers/authController");
-const authValidator = require("../validators/authValidator");
-const { validate } = require("../middleware/validate");
-const { auth, adminAuth } = require("../middleware/auth");
-const { uploadAvatar, handleUploadError } = require("../middleware/upload");
-// const { authLimiter } = require("../middleware/rateLimit");
+const {
+  register,
+  login,
+  logout,
+  makeAdmin,
+  getProfile,
+  getAllUsers,
+} = require("../controllers/authController.js");
+const { validateRequest } = require("../middleware/validateRequest.js");
+const {
+  registerSchema,
+  loginSchema,
+  makeAdminSchema, // Import the new schema
+} = require("../validators/authValidators.js");
+const { authMiddleware } = require("../middleware/authMiddleware.js");
 
-// Apply rate limiting to auth routes
-// router.use(authLimiter);
+const router = express.Router();
 
 // Public routes
-router.post(
-  "/register",
-  authValidator.register,
-  validate,
-  authController.register,
-);
-
-router.post("/login", authValidator.login, validate, authController.login);
+router.post("/register", validateRequest(registerSchema), register);
+router.post("/login", validateRequest(loginSchema), login);
+router.post("/logout", logout);
 
 // Protected routes (require authentication)
-router.get("/profile", auth, authController.getProfile);
+router.get("/profile", authMiddleware, getProfile);
 
-router.put(
-  "/profile",
-  auth,
-  authValidator.updateProfile,
-  validate,
-  authController.updateProfile,
-);
-
-router.put(
-  "/change-password",
-  auth,
-  authValidator.changePassword,
-  validate,
-  authController.changePassword,
-);
-
-router.put(
-  "/avatar",
-  auth,
-  uploadAvatar,
-  handleUploadError,
-  authController.updateAvatar,
-);
-
-router.post("/logout", auth, authController.logout);
-
-// Admin only routes
-router.post("/admin/impersonate", adminAuth, authController.adminImpersonate);
+// Admin routes (with validation)
+router.post("/make-admin", validateRequest(makeAdminSchema), makeAdmin);
+router.get("/users", authMiddleware, getAllUsers);
 
 module.exports = router;

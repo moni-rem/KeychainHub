@@ -4,7 +4,21 @@ const paymentService = require("../services/paymentService");
 const ApiResponse = require("../utils/apiResponse");
 const Helpers = require("../utils/helpers");
 
+// OrderController handles all order-related operations
+// Workflow:
+// 1. Validate user authentication
+// 2. Extract required data from request
+// 3. Call appropriate service for business logic
+// 4. Handle errors with appropriate status codes
+// 5. Return consistent response format with status and data/message
 class OrderController {
+  // Create a new order
+  // Workflow:
+  // 1. Extract user ID from authenticated request and order data from body
+  // 2. Call orderService to create the order
+  // 3. Send order confirmation email (non-blocking)
+  // 4. Create payment intent (non-blocking)
+  // 5. Return success response with order and payment details
   createOrder = Helpers.asyncHandler(async (req, res) => {
     const order = await orderService.createOrder(req.user.id, req.body);
 
@@ -35,6 +49,11 @@ class OrderController {
     response.send(res);
   });
 
+  // Get all orders for the authenticated user
+  // Workflow:
+  // 1. Extract user ID from authenticated request and query params
+  // 2. Call orderService to get user's orders
+  // 3. Return success response with orders data
   getUserOrders = Helpers.asyncHandler(async (req, res) => {
     const result = await orderService.getUserOrders(req.user.id, req.query);
 
@@ -45,6 +64,11 @@ class OrderController {
     response.send(res);
   });
 
+  // Get a specific order by ID
+  // Workflow:
+  // 1. Extract order ID from params and user ID from authenticated request
+  // 2. Call orderService to get the order
+  // 3. Return success response with order data
   getOrder = Helpers.asyncHandler(async (req, res) => {
     const { id } = req.params;
     const order = await orderService.getOrderById(req.user.id, id);
@@ -55,6 +79,12 @@ class OrderController {
     response.send(res);
   });
 
+  // Cancel an order
+  // Workflow:
+  // 1. Extract order ID from params and reason from body
+  // 2. Update order status to cancelled
+  // 3. Initiate refund if order was paid (non-blocking)
+  // 4. Return success response with order and refund status
   cancelOrder = Helpers.asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { reason } = req.body;
@@ -81,6 +111,12 @@ class OrderController {
   });
 
   // Webhook for payment confirmation
+  // Handle payment webhook events
+  // Workflow:
+  // 1. Extract event type and data from request body
+  // 2. Process webhook event through paymentService
+  // 3. Update order status based on payment result (if applicable)
+  // 4. Return success response with webhook processing result
   paymentWebhook = Helpers.asyncHandler(async (req, res) => {
     const { eventType, data } = req.body;
 
@@ -107,6 +143,12 @@ class OrderController {
   });
 
   // Generate invoice for order
+  // Generate invoice for an order
+  // Workflow:
+  // 1. Extract order ID from params and user ID from authenticated request
+  // 2. Get order details
+  // 3. Generate invoice data with customer and item details
+  // 4. Return success response with invoice data
   generateInvoice = Helpers.asyncHandler(async (req, res) => {
     const { id } = req.params;
     const order = await orderService.getOrderById(req.user.id, id);

@@ -1,29 +1,29 @@
 const express = require("express");
+const {
+  getCart,
+  addToCart,
+  updateCartItem,
+  removeFromCart,
+  clearCart,
+  getCartCount,
+} = require("../controllers/cartController.js");
+const { validateRequest } = require("../middleware/validateRequest.js");
+const {
+  addToCartSchema,
+  updateCartItemSchema,
+} = require("../validators/cartValidators.js");
+const { authMiddleware } = require("../middleware/authMiddleware.js");
+
 const router = express.Router();
-const cartController = require("../controllers/cartController");
-const { auth } = require("../middleware/auth");
 
 // All cart routes require authentication
-router.use(auth);
+router.use(authMiddleware);
 
-// Get cart and item count
-router.get("/", cartController.getCart);
-
-router.get("/count", cartController.getCartItemCount);
-
-// Cart operations
-router.post("/", cartController.addToCart);
-
-router.put("/:itemId", cartController.updateCartItem);
-
-router.delete("/:itemId", cartController.removeFromCart);
-
-router.delete("/", cartController.clearCart);
-
-// Cart validation
-router.get("/validate", cartController.validateCart);
-
-// Cart merging (for guest users who log in)
-router.post("/merge", cartController.mergeCart);
+router.get("/", getCart);
+router.get("/count", getCartCount);
+router.post("/", validateRequest(addToCartSchema), addToCart);
+router.put("/:itemId", validateRequest(updateCartItemSchema), updateCartItem);
+router.delete("/:itemId", removeFromCart);
+router.delete("/", clearCart);
 
 module.exports = router;

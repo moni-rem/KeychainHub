@@ -1,94 +1,258 @@
-const authService = require("../services/authService");
-const ApiResponse = require("../utils/apiResponse");
-const Helpers = require("../utils/helpers");
-const fileService = require("../services/fileService");
+const { prisma } = require("../config/db.js");
+const bcrypt = require("bcryptjs");
+const generateToken = require("../utils/generateToken.js");
 
-class AuthController {
-  register = Helpers.asyncHandler(async (req, res) => {
-    const userData = req.body;
-    const result = await authService.register(userData);
-
-    const response = ApiResponse.created(
-      "Registration successful. Welcome to Keychain Shop!",
-      result,
-    );
-    response.send(res);
+const register = async (req, res) => {
+  // const body = req.body; // this part is use to send the data into the body
+  const { name, email, password } = req.body; // this part is use to send the data into the body
+  // and it required (name, email, password) for register
+  //check if user already exists(មាន)
+  const userExists = await prisma.user.findUnique({
+    where: { email: email },
   });
 
-  login = Helpers.asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
-    const result = await authService.login(email, password);
+  if (userExists) {
+    return res
+      .status(400)
+      .json({ error: "User already exists with this email" });
+  }
 
-    const response = ApiResponse.success("Login successful", result);
-    response.send(res);
+  // Hash Password// use bcrypt to convert password to hash
+  const salt = await bcrypt.genSalt(10); // genSalt use to generate the salt and 10 is the round of salt // and what is salt ? salt is random string that add to password to make it more secure
+  const hashPassword = await bcrypt.hash(password, salt);
+
+  // create User
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashPassword,
+    }, // this part is use to send the data into the body
   });
 
-  getProfile = Helpers.asyncHandler(async (req, res) => {
-    const user = await authService.getProfile(req.user.id);
+  //Generate JWT token
+  const token = generateToken(user.id, res);
 
-    const response = ApiResponse.success("Profile retrieved successfully", {
-      user,
-    });
-    response.send(res);
+  //when access create user
+  res.status(201).json({
+    status: "success",
+    data: {
+      user: {
+        id: user.id,
+        email: email,
+        name: user.name,
+        isAdmin: user.isAdmin || false,
+      },
+      token: token,
+    },
   });
+};
 
-  updateProfile = Helpers.asyncHandler(async (req, res) => {
-    const user = await authService.updateProfile(req.user.id, req.body);
+//--------------------------------------------------------------------------------------
+// this part is about login function
+const login = async (req, res) => {
+  const { email, password } = req.body; // but login just need email and password
 
-    const response = ApiResponse.success("Profile updated successfully", {
-      user,
-    });
-    response.send(res);
+  //find to see if user with email and pass to login
+  // it exactly the same with register to checking the user exist(មាន)
+  // check if user email exists in the table(database)
+  const user = await prisma.user.findUnique({
+    // findUnique use for check the unique such as (email, password, or ,, that u put on code where : {email})
+    where: { email: email },
   });
+  //return error when check user are not register yet
+  if (!user) {
+    //if not user then error
+    return res.status(401).json({ error: "Invalid email or password" });
+  }
 
-  changePassword = Helpers.asyncHandler(async (req, res) => {
-    const { oldPassword, newPassword } = req.body;
-    await authService.changePassword(req.user.id, oldPassword, newPassword);
+  // verify password
+  //use compare to compare the password that store in table database and the password that user input to login
+  const isPasswordValid = await bcrypt.compare(password, user.password);
 
-    const response = ApiResponse.success("Password changed successfully");
-    response.send(res);
+  // so i have a condition if user password are not valid it show error
+  // that mean if user input password that not match with the password that store in database it show error
+  if (!isPasswordValid) {
+    return res.status(401).json({ error: "Invalid email or password" });
+  }
+
+  //Generate JWT token
+  const token = generateToken(user.id, res);
+
+  //when access create user
+  res.status(200).json({
+    status: "success",
+    data: {
+      user: {
+        id: user.id,
+        email: email,
+        name: user.name,
+        isAdmin: user.isAdmin || false,
+      },
+      token: token,
+    },
   });
+};
 
-  updateAvatar = Helpers.asyncHandler(async (req, res) => {
-    if (!req.file) {
-      const response = ApiResponse.badRequest("No image file provided");
-      return response.send(res);
+// this part is for logout function and use cookie to clear the jwt token and expire it immediately(ភ្លាមៗ)
+const logout = async (req, res) => {
+  res.cookie("jwt", "", {
+    httpOnly: true,
+    expires: new Date(0), // Set cookie to expire immediately
+  });
+  res.status(200).json({
+    status: "success",
+    message: "User logged out successfully",
+  });
+};
+
+// ============================================
+// NEW FUNCTION: Make a user an admin (for testing)
+// ============================================
+// This function allows you to set a user as admin by email
+// IMPORTANT: In production, you should protect this with additional security
+const makeAdmin = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        status: "error",
+        message: "Email is required",
+      });
     }
 
-    // Upload avatar
-    const uploadedFile = await fileService.uploadImage(req.file, "avatar");
-
-    // Update user avatar in database
-    const user = await authService.updateAvatar(req.user.id, uploadedFile.path);
-
-    const response = ApiResponse.success("Avatar updated successfully", {
-      user,
+    // Check if user exists
+    const user = await prisma.user.findUnique({
+      where: { email: email },
     });
-    response.send(res);
-  });
 
-  logout = Helpers.asyncHandler(async (req, res) => {
-    // JWT is stateless, so we just respond success
-    // In a real application, you might want to implement token blacklisting
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found with this email",
+      });
+    }
 
-    const response = ApiResponse.success("Logged out successfully");
-    response.send(res);
-  });
-
-  // Admin only: Impersonate user (for support purposes)
-  adminImpersonate = Helpers.asyncHandler(async (req, res) => {
-    const { userId } = req.body;
-
-    // In a real application, this would generate a special token
-    // For now, we'll just return the user info
-
-    const user = await authService.getProfile(userId);
-
-    const response = ApiResponse.success("Impersonation token generated", {
-      user,
+    // Update user to be admin
+    const updatedUser = await prisma.user.update({
+      where: { email: email },
+      data: { isAdmin: true },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        isAdmin: true,
+        updatedAt: true,
+      },
     });
-    response.send(res);
-  });
-}
 
-module.exports = new AuthController();
+    res.status(200).json({
+      status: "success",
+      message: "User is now an admin",
+      data: {
+        user: updatedUser,
+      },
+    });
+  } catch (error) {
+    console.error("Error in makeAdmin:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to make user admin",
+    });
+  }
+};
+
+// ============================================
+// OPTIONAL: Get current user profile
+// ============================================
+const getProfile = async (req, res) => {
+  try {
+    // req.user is set by authMiddleware
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        avatar: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        status: "error",
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      status: "success",
+      data: { user },
+    });
+  } catch (error) {
+    console.error("Error in getProfile:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get profile",
+    });
+  }
+};
+
+// ============================================
+// OPTIONAL: Get all users (admin only)
+// ============================================
+const getAllUsers = async (req, res) => {
+  try {
+    // Check if user is admin
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        status: "error",
+        message: "Access denied. Admin only.",
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        address: true,
+        avatar: true,
+        isAdmin: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: { users },
+    });
+  } catch (error) {
+    console.error("Error in getAllUsers:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to get users",
+    });
+  }
+};
+
+// Export all functions
+module.exports = {
+  register,
+  login,
+  logout,
+  makeAdmin, // New function
+  getProfile, // Optional: for getting user profile
+  getAllUsers, // Optional: for admin to see all users
+};

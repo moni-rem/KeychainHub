@@ -1,209 +1,231 @@
-const express = require('express');
-const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
-require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const { connectDB } = require("./config/db");
+const { errorHandler } = require("./middleware/errorHandler.js");
+const env = require("./config/env");
+
+// Import logger
+const logger = require("./middleware/logger");
+
+// Import Routes
+const productRoutes = require("./routes/productRoutes.js");
+const authRoutes = require("./routes/authRoutes.js");
+const cartRoutes = require("./routes/cartRoutes.js");
+const adminRoutes = require("./routes/adminRoutes.js");
+const userRoutes = require("./routes/userRoutes");
+const khqrRoutes = require("./routes/khqr.routes");
 
 const app = express();
 
-// Basic middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true
-}));
+// Connect to database
+connectDB();
 
-app.use(helmet({
-  contentSecurityPolicy: false // Disable for development
-}));
+// ✅ IMPROVED CORS CONFIGURATION
+const allowedOrigins = [
+  env.FRONTEND_URL,
+  env.ADMIN_URL,
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+].filter(Boolean);
 
-app.use(morgan('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        process.env.NODE_ENV === "development"
+      ) {
+        callback(null, true);
+      } else {
+        console.log("❌ Blocked origin:", origin);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+    ],
+    exposedHeaders: ["Content-Range", "X-Content-Range"],
+    maxAge: 86400, // 24 hours
+  }),
+);
 
-// Simple health check
-app.get('/api/health', (req, res) => {
+// Handle preflight requests explicitly
+app.options("*", cors());
+
+// Body parsing middleware with increased limits
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// ✅ DETAILED LOGGER MIDDLEWARE
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  // Log request
+  console.log(`\n📥 ${req.method} ${req.url}`);
+  console.log("Headers:", {
+    origin: req.headers.origin,
+    authorization: req.headers.authorization
+      ? "Bearer [PRESENT]"
+      : "Bearer [MISSING]",
+    "content-type": req.headers["content-type"],
+  });
+
+  if (req.method === "POST" || req.method === "PUT") {
+    console.log("Body:", req.body);
+  }
+
+  // Log response
+  res.on("finish", () => {
+    const duration = Date.now() - start;
+    console.log(
+      `📤 ${req.method} ${req.url} - ${res.statusCode} (${duration}ms)`,
+    );
+  });
+
+  next();
+});
+
+// Use the logger middleware
+app.use(logger);
+
+// ✅ DEBUG ENDPOINT - Check server status
+app.get("/api/debug", (req, res) => {
   res.json({
     success: true,
-    message: 'Keychain Shop API is running',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0'
+    message: "Debug information",
+    server: {
+      time: new Date().toISOString(),
+      uptime: process.uptime(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      memory: process.memoryUsage(),
+      cwd: process.cwd(),
+    },
+    environment: {
+      NODE_ENV: env.nodeEnv,
+      PORT: env.port,
+      FRONTEND_URL: env.FRONTEND_URL,
+      ADMIN_URL: env.ADMIN_URL,
+    },
+    cors: {
+      allowedOrigins: allowedOrigins,
+      credentials: true,
+    },
+    database: {
+      connected: true,
+      url: env.DATABASE_URL ? "[HIDDEN]" : "Not configured",
+    },
   });
 });
 
-// Simple products endpoint for testing
-app.get('/api/products', async (req, res) => {
-  try {
-    const { PrismaClient } = require('@prisma/client');
-    const prisma = new PrismaClient();
-    
-    const products = await prisma.product.findMany({
-      take: 10
-    });
-    
-    await prisma.$disconnect();
-    
-    res.json({
-      success: true,
-      data: { products }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
+// ✅ CHECK AUTH ENDPOINT
+app.get("/api/check-auth", (req, res) => {
+  const authHeader = req.headers.authorization;
+
+  res.json({
+    success: true,
+    message: "Auth check",
+    hasAuthHeader: !!authHeader,
+    authFormat: authHeader
+      ? authHeader.startsWith("Bearer ")
+        ? "Bearer token"
+        : "Invalid format"
+      : "None",
+    timestamp: new Date().toISOString(),
+  });
 });
 
-// Simple auth test endpoint
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { email, password, name } = req.body;
-    
-    if (!email || !password || !name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email, password, and name are required'
-      });
-    }
-    
-    const { PrismaClient } = require('@prisma/client');
-    const bcrypt = require('bcryptjs');
-    const prisma = new PrismaClient();
-    
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
-    
-    if (existingUser) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email already registered'
-      });
-    }
-    
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-    
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        name
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        isAdmin: true,
-        createdAt: true
-      }
-    });
-    
-    // Create cart for user
-    await prisma.cart.create({
-      data: { userId: user.id }
-    });
-    
-    await prisma.$disconnect();
-    
-    res.status(201).json({
-      success: true,
-      message: 'User registered successfully',
-      data: { user }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
+// API Routes
+app.use("/api/products", productRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/cart", cartRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/khqr", khqrRoutes);
+
+// Test route
+app.get("/api/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "Backend is working!",
+    timestamp: new Date().toISOString(),
+    environment: env.nodeEnv,
+    port: env.port,
+    cors: {
+      origin: req.headers.origin || "No origin",
+      allowed: allowedOrigins,
+    },
+  });
 });
 
-// Simple login endpoint
-app.post('/api/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email and password are required'
-      });
-    }
-    
-    const { PrismaClient } = require('@prisma/client');
-    const bcrypt = require('bcryptjs');
-    const jwt = require('jsonwebtoken');
-    const prisma = new PrismaClient();
-    
-    // Find user
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
-    
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-    
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-    
-    // Generate token
-    const token = jwt.sign(
-      { userId: user.id, isAdmin: user.isAdmin },
-      process.env.JWT_SECRET || 'dev-secret',
-      { expiresIn: '7d' }
-    );
-    
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = user;
-    
-    await prisma.$disconnect();
-    
-    res.json({
-      success: true,
-      message: 'Login successful',
-      data: {
-        user: userWithoutPassword,
-        token
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
+// Root route
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Welcome to Keychain Shop API",
+    version: "1.0.0",
+    environment: env.nodeEnv,
+    endpoints: {
+      test: "/api/test",
+      health: "/api/health",
+      debug: "/api/debug",
+      checkAuth: "/api/check-auth",
+      products: "/api/products",
+      auth: "/api/auth",
+      cart: "/api/cart",
+      admin: "/api/admin",
+      khqr: "/api/khqr",
+    },
+    documentation: "Use /api/debug for server information",
+  });
 });
+
+// Simple health check
+app.get("/api/health", (req, res) => {
+  res.json({
+    success: true,
+    message: "Keychain Shop API is running",
+    timestamp: new Date().toISOString(),
+    version: "1.0.0",
+    database: "connected",
+    uptime: process.uptime(),
+    memory: process.memoryUsage().rss,
+  });
+});
+
+// Error handling middleware (should be last)
+app.use(errorHandler);
 
 // 404 handler
-app.use('*', (req, res) => {
+app.use((req, res) => {
+  console.log(`❌ 404 - Route not found: ${req.method} ${req.url}`);
   res.status(404).json({
     success: false,
-    message: `Route ${req.originalUrl} not found`
-  });
-});
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal server error'
+    message: `Route ${req.method} ${req.url} not found`,
+    availableRoutes: [
+      "/",
+      "/api/test",
+      "/api/health",
+      "/api/debug",
+      "/api/check-auth",
+      "/api/products",
+      "/api/auth",
+      "/api/cart",
+      "/api/admin",
+      "/api/khqr",
+    ],
   });
 });
 

@@ -1,76 +1,132 @@
-// src/pages/HomePage/ProductList.jsx
-import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import axios from "axios";
+import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
+import productService from "../../services/productService";
 
-export default function ProductList() {
+export default function ProductList({ limit = 8, title = "Latest Products" }) {
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  const [searchParams] = useSearchParams();
-  const search = (searchParams.get("search") || "").toLowerCase();
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
-  const fetchProducts = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/products");
-      setProducts(res.data); // keep ALL products in state
+      console.log("🔄 Fetching products from port 5001...");
+      const response = await productService.getAllProducts({ limit });
+      console.log("✅ ProductList response:", response);
+
+      if (response.success) {
+        // Format products for display
+        const formattedProducts = (response.data || []).map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          description: p.description,
+          imageUrl: p.image_url || "/no-image.png",
+          category: p.category,
+        }));
+
+        setProducts(formattedProducts);
+      } else {
+        setError("Failed to load products");
+      }
     } catch (err) {
-      console.error("Failed to fetch products:", err.response?.status, err.message);
+      console.error("❌ Fetch products error:", err);
+
+      if (
+        err.code === "ECONNREFUSED" ||
+        err.message?.includes("Network Error")
+      ) {
+        setError(
+          "Cannot connect to server. Please check if backend is running on port 5001.",
+        );
+      } else {
+        setError(
+          err?.response?.data?.message ||
+            err.message ||
+            "Failed to load products",
+        );
+      }
+      setProducts([]);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [limit]);
 
   useEffect(() => {
     fetchProducts();
-    const interval = setInterval(fetchProducts, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [fetchProducts]);
 
-  // ✅ Filter by alphabet (search)
-  const filteredProducts = products.filter((p) =>
-    (p.name || "").toLowerCase().includes(search)
-  );
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="h-8 w-8 rounded-full border-2 border-blue-600 border-t-transparent animate-spin" />
+        <span className="ml-3 text-gray-600">Loading products...</span>
+      </div>
+    );
+  }
 
-  // ✅ Then show latest 8 from the filtered results
-  const latestFilteredProducts = filteredProducts
-    .slice()
-    .sort((a, b) => (b.id || 0) - (a.id || 0))
-    .slice(0, 8);
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500 mb-4">{error}</p>
+        <button
+          onClick={fetchProducts}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-7xl mx-auto mt-20 px-4 mb-16">
-      {/* Optional: show search result text */}
-      {search && (
-        <p className="mb-4 text-gray-600">
-          Showing results for: <b>{search}</b> ({latestFilteredProducts.length})
-        </p>
-      )}
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {latestFilteredProducts.map((p) => (
-          <Link key={p._id || p.id} to={`/product/${p._id || p.id}`}>
-            <div className="border rounded-lg shadow overflow-hidden cursor-pointer hover:shadow-xl transition">
-              <img
-                src={
-                  p.image?.startsWith("http")
-                    ? p.image
-                    : `http://localhost:5000/uploads/${p.image}`
-                }
-                alt={p.name}
-                className="h-72 w-full object-cover"
-              />
-              <div className="p-4">
-                <h3 className="text-xl font-semibold">{p.name}</h3>
-              </div>
-            </div>
-          </Link>
-        ))}
-
-        {/* If no result */}
-        {latestFilteredProducts.length === 0 && (
-          <p className="col-span-full text-center text-gray-500 mt-6">
-            No products found.
-          </p>
-        )}
+    <div className="p-6">
+      <div className="flex items-end justify-between mb-4">
+        <h2 className="text-xl font-semibold">{title}</h2>
+        <Link to="/shop" className="text-sm opacity-70 hover:opacity-100">
+          View all →
+        </Link>
       </div>
+
+      {products.length === 0 ? (
+        <div className="text-center py-8 opacity-70">No products found.</div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {products.map((product) => (
+            <Link
+              key={product.id}
+              to={`/product/${product.id}`}
+              className="rounded-xl border border-gray-200 bg-white overflow-hidden hover:shadow-lg transition-shadow"
+            >
+              <div className="aspect-square overflow-hidden bg-gray-100">
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = "/no-image.png";
+                  }}
+                />
+              </div>
+
+              <div className="p-3">
+                <h3 className="font-semibold text-gray-900 truncate">
+                  {product.name}
+                </h3>
+                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                  {product.description || "No description"}
+                </p>
+                <div className="mt-2 font-bold text-blue-600">
+                  ${Number(product.price).toFixed(2)}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
