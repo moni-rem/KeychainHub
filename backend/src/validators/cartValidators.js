@@ -30,7 +30,35 @@ const updateCartItemSchema = z.object({
     .max(100, "Quantity cannot exceed 100"),
 });
 
+const cartMergeItemSchema = z.object({
+  productId: z.string().uuid("Invalid product ID format"),
+  quantity: z
+    .number()
+    .int("Quantity must be an integer")
+    .min(1, "Quantity must be at least 1")
+    .max(100, "Quantity cannot exceed 100"),
+});
+
+const mergeCartSchema = z
+  .object({
+    guestCart: z
+      .object({
+        items: z.array(cartMergeItemSchema).default([]),
+      })
+      .optional(),
+    items: z.array(cartMergeItemSchema).optional(),
+  })
+  .refine(
+    (data) =>
+      Array.isArray(data?.items) || Array.isArray(data?.guestCart?.items),
+    {
+      message: "items or guestCart.items is required",
+      path: ["items"],
+    },
+  );
+
 module.exports = {
   addToCartSchema,
   updateCartItemSchema,
+  mergeCartSchema,
 };

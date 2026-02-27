@@ -39,8 +39,26 @@ class OrderService {
       if (params.userId) formattedParams.limit = "200";
 
       const response = await get("/admin/orders", { params: formattedParams });
-      let rows = response.data?.data || response.data || [];
-      const pagination = response.data?.pagination || response.pagination || null;
+      let rows =
+        response?.data?.data ||
+        response?.data?.results ||
+        response?.data ||
+        response?.results ||
+        [];
+      const pagination =
+        response?.data?.pagination ||
+        response?.pagination ||
+        (Number.isFinite(response?.data?.total)
+          ? {
+              page: Number(formattedParams.page || 1),
+              limit: Number(formattedParams.limit || 10),
+              total: Number(response.data.total || 0),
+              pages: Math.ceil(
+                Number(response.data.total || 0) /
+                  Number(formattedParams.limit || 10),
+              ),
+            }
+          : null);
 
       if (!Array.isArray(rows)) rows = [];
 
@@ -104,13 +122,21 @@ class OrderService {
     }
   }
 
-  async getOrderStats(timeRange = "month") {
+  async getOrderStats(timeRange = "all") {
     try {
-      const dashboard = await get("/admin/dashboard", {
-        params: { timeRange },
-      });
+      let stats = {};
 
-      const stats = dashboard?.orderStats || {};
+      if (timeRange === "all") {
+        stats = await get("/admin/orders/stats", {
+          params: { timeRange },
+        });
+      } else {
+        const dashboard = await get("/admin/dashboard", {
+          params: { timeRange },
+        });
+        stats = dashboard?.orderStats || {};
+      }
+
       return {
         success: true,
         data: {
@@ -118,25 +144,22 @@ class OrderService {
           pendingOrders: stats.pendingOrders || 0,
           processingOrders: stats.processingOrders || 0,
           completedOrders: stats.completedOrders || 0,
-          cancelledOrders:
-            stats.cancelledOrders ||
-            Math.max(
-              0,
-              (stats.totalOrders || 0) -
-                (stats.pendingOrders || 0) -
-                (stats.completedOrders || 0) -
-                (stats.processingOrders || 0),
-            ),
+          cancelledOrders: stats.cancelledOrders || 0,
           totalRevenue: stats.totalRevenue || 0,
           avgOrderValue:
-            stats.totalOrders > 0
-              ? Number(stats.averageOrderValue || 0)
+            (stats.totalOrders || 0) > 0
+              ? Number(
+                  stats.averageOrderValue ||
+                    Number(stats.totalRevenue || 0) /
+                      Number(stats.totalOrders || 1),
+                )
               : Number(stats.averageOrderValue || 0),
           recentOrders: stats.recentOrders || [],
           topProducts: (stats.topProducts || []).map((item) => ({
             ...item,
             name: item.productName || item.name || "Unknown",
           })),
+          cancellationRate: Number(stats.cancellationRate || 0),
         },
       };
     } catch (error) {

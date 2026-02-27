@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const adminRealtimeService = require("./adminRealtimeService");
 
 class ProductService {
   // Get all products with filtering and pagination
@@ -88,7 +89,7 @@ class ProductService {
 
   // Create new product
   async createProduct(data) {
-    return await prisma.product.create({
+    const product = await prisma.product.create({
       data: {
         name: data.name,
         description: data.description,
@@ -111,11 +112,20 @@ class ProductService {
               : true,
       },
     });
+
+    adminRealtimeService.publish("product.created", {
+      productId: product.id,
+      name: product.name,
+      stock: product.stock,
+      price: Number(product.price || 0),
+    });
+
+    return product;
   }
 
   // Update product
   async updateProduct(id, data) {
-    return await prisma.product.update({
+    const product = await prisma.product.update({
       where: { id },
       data: {
         ...(data.name && { name: data.name }),
@@ -135,21 +145,47 @@ class ProductService {
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
     });
+
+    adminRealtimeService.publish("product.updated", {
+      productId: product.id,
+      name: product.name,
+      stock: product.stock,
+      price: Number(product.price || 0),
+      isActive: product.isActive,
+    });
+
+    return product;
   }
 
   // Delete product
   async deleteProduct(id) {
     try {
-      return await prisma.product.delete({
+      const product = await prisma.product.delete({
         where: { id },
       });
+
+      adminRealtimeService.publish("product.deleted", {
+        productId: product.id,
+        name: product.name,
+        softDeleted: false,
+      });
+
+      return product;
     } catch (error) {
       // If product is referenced by other records (orders/cart), fall back to soft delete.
       if (error?.code === "P2003" || error?.code === "P2014") {
-        return await prisma.product.update({
+        const product = await prisma.product.update({
           where: { id },
           data: { isActive: false },
         });
+
+        adminRealtimeService.publish("product.deleted", {
+          productId: product.id,
+          name: product.name,
+          softDeleted: true,
+        });
+
+        return product;
       }
       throw error;
     }

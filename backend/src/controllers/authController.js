@@ -1,6 +1,7 @@
 const { prisma } = require("../config/db.js");
 const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken.js");
+const adminRealtimeService = require("../services/adminRealtimeService");
 
 const register = async (req, res) => {
   // const body = req.body; // this part is use to send the data into the body
@@ -32,6 +33,12 @@ const register = async (req, res) => {
 
   //Generate JWT token
   const token = generateToken(user.id, res);
+
+  adminRealtimeService.publish("auth.user_registered", {
+    userId: user.id,
+    email: user.email,
+    isAdmin: Boolean(user.isAdmin),
+  });
 
   //when access create user
   res.status(201).json({
@@ -78,6 +85,12 @@ const login = async (req, res) => {
 
   //Generate JWT token
   const token = generateToken(user.id, res);
+
+  adminRealtimeService.publish("auth.user_login", {
+    userId: user.id,
+    email: user.email,
+    isAdmin: Boolean(user.isAdmin),
+  });
 
   //when access create user
   res.status(200).json({

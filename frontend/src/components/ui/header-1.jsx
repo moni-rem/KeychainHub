@@ -19,7 +19,10 @@ export function Header() {
   const { cartItems } = useCart();
   const { user, logout } = useUserAuth();
 
-  const totalItems = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
+  const totalItems = cartItems.reduce(
+    (sum, item) => sum + (item.quantity || 0),
+    0,
+  );
 
   const categories = [
     "Metal",
@@ -103,7 +106,11 @@ export function Header() {
 
         <div className="hidden items-center gap-2 md:flex">
           {links.map((link) => (
-            <Link key={link.label} className={buttonVariants({ variant: "ghost" })} to={link.href}>
+            <Link
+              key={link.label}
+              className={buttonVariants({ variant: "ghost" })}
+              to={link.href}
+            >
               {link.label}
             </Link>
           ))}
@@ -113,9 +120,9 @@ export function Header() {
             onMouseEnter={() => setShopOpen(true)}
             onMouseLeave={() => setShopOpen(false)}
           >
-            <button className={buttonVariants({ variant: "ghost" })}>
+            <Link to="/shop" className={buttonVariants({ variant: "ghost" })}>
               Shop
-            </button>
+            </Link>
             {shopOpen && (
               <div className="absolute left-0 top-11 z-50 w-52 rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
                 <Link
@@ -130,7 +137,7 @@ export function Header() {
                 {categories.map((category) => (
                   <Link
                     key={category}
-                    to={`/shop?category=${encodeURIComponent(category)}`}
+                    to={`/shop/${encodeURIComponent(category.toLowerCase())}`}
                     className={buttonVariants({
                       variant: "ghost",
                       className: "w-full justify-start",
@@ -158,7 +165,10 @@ export function Header() {
 
           {!user ? (
             <>
-              <Link to="/login" className={buttonVariants({ variant: "outline" })}>
+              <Link
+                to="/login"
+                className={buttonVariants({ variant: "outline" })}
+              >
                 <LuUser className="mr-2 size-4" />
                 Sign In
               </Link>
@@ -221,7 +231,7 @@ export function Header() {
             {categories.map((category) => (
               <Link
                 key={category}
-                to={`/shop?category=${encodeURIComponent(category)}`}
+                to={`/shop/${encodeURIComponent(category.toLowerCase())}`}
                 onClick={() => setOpen(false)}
                 className={buttonVariants({
                   variant: "ghost",
@@ -252,7 +262,10 @@ export function Header() {
               <Link
                 to="/login"
                 onClick={() => setOpen(false)}
-                className={buttonVariants({ variant: "outline", className: "w-full" })}
+                className={buttonVariants({
+                  variant: "outline",
+                  className: "w-full",
+                })}
               >
                 Sign In
               </Link>

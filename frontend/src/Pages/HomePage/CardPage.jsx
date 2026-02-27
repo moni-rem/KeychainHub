@@ -56,13 +56,13 @@ export default function CartPage() {
       if (clearCart) clearCart();
 
       const orderId =
+        res?.data?.order?.id ||
         res.data?.orderId ||
-        res.data?.data?.orderId ||
-        res.data?.data?.order?.id ||
-        res.data?.data?.order?.orderId;
+        res?.orderId ||
+        res?.order?.id;
 
       if (orderId) navigate(`/order-success/${orderId}`);
-      else navigate("/orders");
+      else navigate("/");
     } catch (err) {
       console.log("STATUS:", err.response?.status);
       console.log("DATA JSON:", JSON.stringify(err.response?.data, null, 2));

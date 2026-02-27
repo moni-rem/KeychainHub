@@ -67,6 +67,155 @@ const getCart = async (req, res) => {
   }
 };
 
+const normalizeMergeItems = (items = []) => {
+  const itemMap = new Map();
+
+  items.forEach((item) => {
+    const productId = String(item.productId);
+    const quantity = Number(item.quantity || 0);
+    if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
+      return;
+    }
+    itemMap.set(productId, (itemMap.get(productId) || 0) + quantity);
+  });
+
+  return Array.from(itemMap.entries()).map(([productId, quantity]) => ({
+    productId,
+    quantity,
+  }));
+};
+
+const getOrCreateCart = async (userId) => {
+  const existing = await prisma.cart.findUnique({
+    where: { userId },
+  });
+
+  if (existing) {
+    return existing;
+  }
+
+  return prisma.cart.create({
+    data: { userId },
+  });
+};
+
+const fetchCartPayload = async (userId) => {
+  const cart = await prisma.cart.findUnique({
+    where: { userId },
+    include: {
+      items: {
+        include: {
+          product: true,
+        },
+      },
+    },
+  });
+
+  const total = (cart?.items || []).reduce((sum, item) => {
+    return sum + item.product.price * item.quantity;
+  }, 0);
+
+  return {
+    cart: {
+      ...(cart || { items: [] }),
+      total,
+    },
+  };
+};
+
+// Merge frontend/guest cart into authenticated user's DB cart.
+// This is implemented as a sync/replace to keep Neon cart consistent with frontend state.
+const mergeCart = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const incomingItems = Array.isArray(req.body?.items)
+      ? req.body.items
+      : req.body?.guestCart?.items || [];
+
+    const normalizedItems = normalizeMergeItems(incomingItems);
+    const cart = await getOrCreateCart(userId);
+
+    const productIds = normalizedItems.map((item) => item.productId);
+    const products = productIds.length
+      ? await prisma.product.findMany({
+          where: {
+            id: { in: productIds },
+            isActive: true,
+          },
+          select: {
+            id: true,
+            stock: true,
+            name: true,
+          },
+        })
+      : [];
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    const missingProductIds = productIds.filter((id) => !productMap.has(id));
+    if (missingProductIds.length > 0) {
+      return res.status(404).json({
+        status: "error",
+        message: "Some products were not found or inactive",
+        data: {
+          missingProductIds,
+        },
+      });
+    }
+
+    const stockIssues = normalizedItems
+      .map((item) => {
+        const product = productMap.get(item.productId);
+        if (!product || product.stock >= item.quantity) return null;
+        return {
+          productId: item.productId,
+          name: product.name,
+          requested: item.quantity,
+          available: product.stock,
+        };
+      })
+      .filter(Boolean);
+
+    if (stockIssues.length > 0) {
+      return res.status(400).json({
+        status: "error",
+        message: "Some cart items exceed available stock",
+        data: {
+          stockIssues,
+        },
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cartItem.deleteMany({
+        where: { cartId: cart.id },
+      });
+
+      if (normalizedItems.length > 0) {
+        await tx.cartItem.createMany({
+          data: normalizedItems.map((item) => ({
+            cartId: cart.id,
+            productId: item.productId,
+            quantity: item.quantity,
+          })),
+        });
+      }
+    });
+
+    const payload = await fetchCartPayload(userId);
+
+    return res.status(200).json({
+      status: "success",
+      message: "Cart merged successfully",
+      data: payload,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to merge cart",
+    });
+  }
+};
+
 // Add item to cart
 // Workflow:
 // 1. Extract user ID, product ID, and quantity from request
@@ -336,4 +485,5 @@ module.exports = {
   removeFromCart,
   clearCart,
   getCartCount,
+  mergeCart,
 };

@@ -24,6 +24,7 @@ router.use(adminMiddleware);
 // Admin profile
 router.get("/profile", adminController.getAdminProfile);
 router.post("/logout", adminController.adminLogout);
+router.get("/events", adminController.streamRealtimeEvents);
 
 // Dashboard - check if method exists
 if (typeof adminController.getDashboardStats === "function") {
@@ -99,6 +100,10 @@ if (typeof adminController.deleteProduct === "function") {
 // Order management
 if (typeof adminController.getAllOrders === "function") {
   router.get("/orders", adminController.getAllOrders);
+}
+
+if (typeof adminController.getOrderSummaryStats === "function") {
+  router.get("/orders/stats", adminController.getOrderSummaryStats);
 }
 
 if (typeof adminController.updateOrderStatus === "function") {

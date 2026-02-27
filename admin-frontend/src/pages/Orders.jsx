@@ -1,4 +1,4 @@
-import React, { useState } from "react"; // Make sure useState is imported
+import React, { useCallback, useState } from "react";
 import { useQuery } from "react-query";
 import {
   Search,
@@ -14,12 +14,8 @@ import {
 } from "lucide-react";
 import orderService from "../services/orderService";
 import { formatCurrency, formatDate } from "../utils/formatters";
-import {
-  exportToPDF,
-  exportToCSV,
-  exportToExcel,
-  printOrders,
-} from "../utils/exporters";
+import { exportToPDF } from "../utils/exporters";
+import { useAdminRealtimeRefresh } from "../hooks/useAdminRealtimeRefresh";
 import toast from "react-hot-toast";
 
 const AUTO_REFRESH_INTERVAL = 10000;
@@ -61,6 +57,24 @@ function Orders() {
     },
   );
 
+  const handleRealtimeRefresh = useCallback(
+    (eventData) => {
+      const changeType = eventData?.changeType || "";
+      if (
+        !["order.", "product.", "payment.", "auth."].some((prefix) =>
+          changeType.startsWith(prefix),
+        )
+      ) {
+        return;
+      }
+      refetch();
+      refetchStats();
+    },
+    [refetch, refetchStats],
+  );
+
+  useAdminRealtimeRefresh(handleRealtimeRefresh, { debounceMs: 500 });
+
   const handleUpdateStatus = async (orderId, newStatus) => {
     try {
       const response = await orderService.updateOrderStatus(orderId, newStatus);
@@ -74,28 +88,35 @@ function Orders() {
     }
   };
 
-  const handleExport = async (format) => {
+  const handleExportPDF = async () => {
     setExporting(true);
     try {
-      const ordersToExport =
-        selectedOrders.length > 0 ? selectedOrders : data?.data || [];
+      let ordersToExport = selectedOrders;
 
-      switch (format) {
-        case "pdf":
-          await exportToPDF(ordersToExport, "orders-report.pdf");
-          break;
-        case "csv":
-          await exportToCSV(ordersToExport, "orders-report.csv");
-          break;
-        case "excel":
-          await exportToExcel(ordersToExport, "orders-report.xlsx");
-          break;
-        case "print":
-          printOrders(ordersToExport);
-          break;
+      // Pull fresh export data from backend only when export is requested.
+      if (!ordersToExport.length) {
+        const exportResponse = await orderService.getAllOrders({
+          page: 1,
+          limit: 1000,
+          search: searchQuery,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+        });
+
+        if (!exportResponse.success) {
+          throw new Error(exportResponse.error || "Failed to fetch orders");
+        }
+
+        ordersToExport = exportResponse.data || [];
       }
 
-      toast.success(`Orders exported as ${format.toUpperCase()}`);
+      if (!ordersToExport.length) {
+        toast.error("No orders available to export");
+        return;
+      }
+
+      const filenameDate = new Date().toISOString().split("T")[0];
+      await exportToPDF(ordersToExport, `orders-report-${filenameDate}.pdf`);
+      toast.success("Orders exported as PDF");
     } catch (error) {
       toast.error("Failed to export orders");
     } finally {
@@ -173,47 +194,18 @@ function Orders() {
             <RefreshCw size={20} />
           </button>
 
-          {/* Export Dropdown */}
-          <div className="relative group">
-            <button
-              disabled={exporting}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
-            >
-              {exporting ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Download size={16} />
-              )}
-              Export
-            </button>
-
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border hidden group-hover:block">
-              <button
-                onClick={() => handleExport("pdf")}
-                className="w-full text-left px-4 py-2 hover:bg-gray-50"
-              >
-                Export as PDF
-              </button>
-              <button
-                onClick={() => handleExport("csv")}
-                className="w-full text-left px-4 py-2 hover:bg-gray-50"
-              >
-                Export as CSV
-              </button>
-              <button
-                onClick={() => handleExport("excel")}
-                className="w-full text-left px-4 py-2 hover:bg-gray-50"
-              >
-                Export as Excel
-              </button>
-              <button
-                onClick={() => handleExport("print")}
-                className="w-full text-left px-4 py-2 hover:bg-gray-50"
-              >
-                Print
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={handleExportPDF}
+            disabled={exporting}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400"
+          >
+            {exporting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            Export PDF
+          </button>
         </div>
       </div>
 

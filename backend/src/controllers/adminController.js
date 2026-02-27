@@ -8,6 +8,7 @@ const { prisma } = require("../config/db.js");
 const bcrypt = require("bcryptjs");
 const generateToken = require("../utils/generateToken.js");
 const os = require("os");
+const adminRealtimeService = require("../services/adminRealtimeService");
 
 // AdminController handles all admin-related operations
 class AdminController {
@@ -66,6 +67,11 @@ class AdminController {
     // Generate JWT token and set cookie (using same generateToken function)
     const token = generateToken(user.id, res);
 
+    adminRealtimeService.publish("auth.admin_login", {
+      userId: user.id,
+      email: user.email,
+    });
+
     // Return success response
     const response = ApiResponse.success("Admin login successful", {
       user: {
@@ -116,6 +122,11 @@ class AdminController {
     const response = ApiResponse.success("Admin profile retrieved", { user });
     response.send(res);
   });
+
+  // Stream realtime admin events via Server-Sent Events
+  streamRealtimeEvents = (req, res) => {
+    adminRealtimeService.subscribe(req, res);
+  };
 
   // Get dashboard statistics for admin overview
   getDashboardStats = Helpers.asyncHandler(async (req, res) => {
@@ -251,6 +262,17 @@ class AdminController {
     const result = await orderService.getAllOrders(req.query);
 
     const response = ApiResponse.success("All orders retrieved", result);
+    response.send(res);
+  });
+
+  // Get order summary stats for admin order dashboard cards
+  getOrderSummaryStats = Helpers.asyncHandler(async (req, res) => {
+    const stats = await orderService.getOrderSummaryStats(req.query);
+
+    const response = ApiResponse.success(
+      "Order summary statistics retrieved",
+      stats,
+    );
     response.send(res);
   });
 

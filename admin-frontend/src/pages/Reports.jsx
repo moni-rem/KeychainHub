@@ -20,6 +20,7 @@ import {
 import orderService from "../services/orderService";
 import productService from "../services/productService";
 import userService from "../services/userService";
+import { useAdminRealtimeRefresh } from "../hooks/useAdminRealtimeRefresh";
 import { formatCurrency, formatPercentage } from "../utils/formatters";
 
 const AUTO_REFRESH_INTERVAL = 15000;
@@ -187,6 +188,24 @@ function Reports() {
     }, AUTO_REFRESH_INTERVAL);
     return () => clearInterval(timer);
   }, [loadReportData]); // Now loadReportData is stable
+
+  useAdminRealtimeRefresh(
+    useCallback(
+      (eventData) => {
+        const changeType = eventData?.changeType || "";
+        if (
+          !["order.", "product.", "payment.", "auth."].some((prefix) =>
+            changeType.startsWith(prefix),
+          )
+        ) {
+          return;
+        }
+        loadReportData(false, true);
+      },
+      [loadReportData],
+    ),
+    { debounceMs: 700 },
+  );
 
   const exportReport = (format) => {
     if (format === "pdf") {

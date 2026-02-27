@@ -1,7 +1,28 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import productService from "../../services/productService";
 import Pagination01 from "../../components/ui/pagination-01";
+
+const PRODUCT_TYPES = [
+  "Metal",
+  "Plastic",
+  "Leather",
+  "Rubber",
+  "Acrylic",
+  "Wood",
+  "Silicone",
+];
+
+const normalizeCategory = (value = "") =>
+  String(value).trim().toLowerCase();
+
+const resolveProductType = (value = "") => {
+  const normalized = normalizeCategory(value);
+  if (!normalized) return "";
+  return (
+    PRODUCT_TYPES.find((type) => normalizeCategory(type) === normalized) || ""
+  );
+};
 
 export default function ProductPage() {
   const ITEMS_PER_PAGE = 8;
@@ -12,9 +33,11 @@ export default function ProductPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // URL query
+  const { category: categoryParam } = useParams();
   const [searchParams] = useSearchParams();
   const search = (searchParams.get("search") || "").toLowerCase().trim();
-  const category = (searchParams.get("category") || "").toLowerCase().trim();
+  const rawCategory = categoryParam || searchParams.get("category") || "";
+  const category = resolveProductType(rawCategory);
 
   // UI filters
   const [sortBy, setSortBy] = useState("newest"); // newest | az | za
@@ -26,10 +49,16 @@ export default function ProductPage() {
     setError("");
 
     try {
-      const res = await productService.getAllProducts({
+      const params = {
         page: 1,
-        limit: 200,
-      });
+        limit: 100,
+      };
+
+      if (category) {
+        params.category = category;
+      }
+
+      const res = await productService.getAllProducts(params);
       const list = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res)
@@ -44,7 +73,7 @@ export default function ProductPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [category]);
 
   useEffect(() => {
     fetchProducts();
@@ -65,7 +94,7 @@ export default function ProductPage() {
     // category from URL query
     if (category) {
       list = list.filter((p) =>
-        String(p.category || "").toLowerCase() === category,
+        normalizeCategory(p.category) === normalizeCategory(category),
       );
     }
 
@@ -137,6 +166,12 @@ export default function ProductPage() {
             {search && (
               <div>
                 Results for: <b>{search}</b> ({filteredProducts.length})
+              </div>
+            )}
+
+            {category && (
+              <div>
+                Category: <b>{category}</b>
               </div>
             )}
 

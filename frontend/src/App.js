@@ -37,6 +37,9 @@ function AppContent() {
               {/* Public Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/shop" element={<ProductPage />} />
+              <Route path="/shop/:category" element={<ProductPage />} />
+              <Route path="/products" element={<ProductPage />} />
+              <Route path="/products/:category" element={<ProductPage />} />
               <Route path="/product/:id" element={<ProductDetail />} />
               <Route path="/contact" element={<ReviewPage />} />
               <Route path="/blog" element={<Blogpage />} />

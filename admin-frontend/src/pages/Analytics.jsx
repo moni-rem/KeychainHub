@@ -29,6 +29,7 @@ import {
 } from "recharts";
 import toast from "react-hot-toast";
 import orderService from "../services/orderService";
+import { useAdminRealtimeRefresh } from "../hooks/useAdminRealtimeRefresh";
 import {
   formatCurrency,
   formatNumber,
@@ -164,6 +165,24 @@ const Analytics = () => {
     }, AUTO_REFRESH_INTERVAL);
     return () => clearInterval(timer);
   }, [fetchAnalyticsData]);
+
+  useAdminRealtimeRefresh(
+    useCallback(
+      (eventData) => {
+        const changeType = eventData?.changeType || "";
+        if (
+          !["order.", "product.", "payment.", "auth."].some((prefix) =>
+            changeType.startsWith(prefix),
+          )
+        ) {
+          return;
+        }
+        fetchAnalyticsData(false, true);
+      },
+      [fetchAnalyticsData],
+    ),
+    { debounceMs: 600 },
+  );
 
   const handleRefresh = () => {
     fetchAnalyticsData(true, true);

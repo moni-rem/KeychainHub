@@ -4,8 +4,69 @@ const Helpers = require("../utils/helpers");
 const cartService = require("./cartService");
 const productService = require("./productService");
 const constants = require("../config/constants");
+const adminRealtimeService = require("./adminRealtimeService");
 
 class OrderService {
+  parseDateOrThrow(value, fieldName) {
+    if (!value) return null;
+    const parsed = new Date(value);
+
+    if (Number.isNaN(parsed.getTime())) {
+      throw new ApiError(400, `Invalid ${fieldName}`);
+    }
+
+    return parsed;
+  }
+
+  getRangeStartFromTimeRange(timeRange) {
+    if (!timeRange || timeRange === "all") {
+      return null;
+    }
+
+    const startDate = new Date();
+    switch (timeRange) {
+      case "day":
+        startDate.setDate(startDate.getDate() - 1);
+        break;
+      case "week":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "month":
+        startDate.setMonth(startDate.getMonth() - 1);
+        break;
+      case "year":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        return null;
+    }
+
+    return startDate;
+  }
+
+  buildDateFilter(query = {}) {
+    const { timeRange = "all", startDate, endDate } = query;
+    const parsedStart = this.parseDateOrThrow(startDate, "startDate");
+    const parsedEnd = this.parseDateOrThrow(endDate, "endDate");
+
+    if (parsedStart || parsedEnd) {
+      const createdAt = {};
+      if (parsedStart) createdAt.gte = parsedStart;
+      if (parsedEnd) createdAt.lte = parsedEnd;
+      return createdAt;
+    }
+
+    const rangeStart = this.getRangeStartFromTimeRange(timeRange);
+    if (!rangeStart) {
+      return null;
+    }
+
+    return {
+      gte: rangeStart,
+      lte: new Date(),
+    };
+  }
+
   async createOrder(userId, orderData) {
     const { address, phone, notes } = orderData;
 
@@ -72,6 +133,13 @@ class OrderService {
       }
 
       return newOrder;
+    });
+
+    adminRealtimeService.publish("order.created", {
+      orderId: order.id,
+      userId,
+      total: Number(order.total || 0),
+      status: order.status,
     });
 
     return order;
@@ -164,6 +232,12 @@ class OrderService {
       return order;
     });
 
+    adminRealtimeService.publish("order.status_updated", {
+      orderId,
+      status: result.status,
+      updatedAt: result.updatedAt,
+    });
+
     return result;
   }
 
@@ -215,6 +289,66 @@ class OrderService {
     return Helpers.paginate(orders, page, limit, total);
   }
 
+  async getOrderSummaryStats(query = {}) {
+    const createdAt = this.buildDateFilter(query);
+    const baseWhere = createdAt ? { createdAt } : {};
+
+    const [
+      totalOrders,
+      pendingOrders,
+      processingOrders,
+      completedOrders,
+      cancelledOrders,
+      totalRevenueAgg,
+    ] = await Promise.all([
+      prisma.order.count({ where: baseWhere }),
+      prisma.order.count({
+        where: {
+          ...baseWhere,
+          status: "pending",
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...baseWhere,
+          status: {
+            in: ["processing", "shipped"],
+          },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...baseWhere,
+          status: "delivered",
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...baseWhere,
+          status: "cancelled",
+        },
+      }),
+      prisma.order.aggregate({
+        _sum: { total: true },
+        where: {
+          ...baseWhere,
+          status: {
+            not: "cancelled",
+          },
+        },
+      }),
+    ]);
+
+    return {
+      totalOrders,
+      pendingOrders,
+      processingOrders,
+      completedOrders,
+      cancelledOrders,
+      totalRevenue: Number((totalRevenueAgg?._sum?.total || 0).toFixed(2)),
+    };
+  }
+
   async getOrderStats(timeRange = "month") {
     let startDate;
     const endDate = new Date();
@@ -245,7 +379,9 @@ class OrderService {
       totalOrders,
       totalRevenue,
       pendingOrders,
+      processingOrders,
       completedOrders,
+      cancelledOrders,
       recentOrders,
       topProducts,
     ] = await Promise.all([
@@ -284,7 +420,27 @@ class OrderService {
             gte: startDate,
             lte: endDate,
           },
+          status: {
+            in: ["processing", "shipped"],
+          },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
           status: "delivered",
+        },
+      }),
+      prisma.order.count({
+        where: {
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
+          status: "cancelled",
         },
       }),
       prisma.order.findMany({
@@ -361,13 +517,12 @@ class OrderService {
         ? parseFloat(totalRevenue._sum.total.toFixed(2))
         : 0,
       pendingOrders,
+      processingOrders,
       completedOrders,
+      cancelledOrders,
       cancellationRate:
         totalOrders > 0
-          ? (
-              ((totalOrders - completedOrders - pendingOrders) / totalOrders) *
-              100
-            ).toFixed(2)
+          ? ((cancelledOrders / totalOrders) * 100).toFixed(2)
           : "0.00",
       averageOrderValue:
         totalOrders > 0

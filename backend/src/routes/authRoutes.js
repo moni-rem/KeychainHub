@@ -13,7 +13,10 @@ const {
   loginSchema,
   makeAdminSchema, // Import the new schema
 } = require("../validators/authValidators.js");
-const { authMiddleware } = require("../middleware/authMiddleware.js");
+const {
+  authMiddleware,
+  adminMiddleware,
+} = require("../middleware/authMiddleware.js");
 
 const router = express.Router();
 
@@ -26,7 +29,13 @@ router.post("/logout", logout);
 router.get("/profile", authMiddleware, getProfile);
 
 // Admin routes (with validation)
-router.post("/make-admin", validateRequest(makeAdminSchema), makeAdmin);
-router.get("/users", authMiddleware, getAllUsers);
+router.post(
+  "/make-admin",
+  authMiddleware,
+  adminMiddleware,
+  validateRequest(makeAdminSchema),
+  makeAdmin,
+);
+router.get("/users", authMiddleware, adminMiddleware, getAllUsers);
 
 module.exports = router;

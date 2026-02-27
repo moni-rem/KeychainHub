@@ -14,6 +14,7 @@ import { MetricCard } from "../components/MetricCard";
 import { RevenueChart } from "../components/RevenueChart";
 import { QuickActions } from "../components/QuickActions";
 import orderService from "../services/orderService";
+import { useAdminRealtimeRefresh } from "../hooks/useAdminRealtimeRefresh";
 import {
   formatCurrency,
   formatNumber,
@@ -271,6 +272,24 @@ const Dashboard = () => {
     }, AUTO_REFRESH_INTERVAL);
     return () => clearInterval(timer);
   }, [fetchDashboardData]);
+
+  useAdminRealtimeRefresh(
+    useCallback(
+      (eventData) => {
+        const changeType = eventData?.changeType || "";
+        if (
+          !["order.", "product.", "payment.", "auth."].some((prefix) =>
+            changeType.startsWith(prefix),
+          )
+        ) {
+          return;
+        }
+        fetchDashboardData(false, true);
+      },
+      [fetchDashboardData],
+    ),
+    { debounceMs: 600 },
+  );
 
   // Handle refresh
   const handleRefresh = () => {

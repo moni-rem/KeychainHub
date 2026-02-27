@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const db = require("../model");
+const adminRealtimeService = require("../services/adminRealtimeService");
 
 const resolveUserId = (req) => String(req.params.id || req.user?.id || "");
 
@@ -63,6 +64,14 @@ const generatekhqr = async (req, res) => {
       currency: "USD",
       paymentMethod: "khqr",
       paid: false,
+    });
+
+    adminRealtimeService.publish("order.created", {
+      orderId: order.id,
+      userId,
+      total: Number(order.total || 0),
+      status: order.status,
+      paymentMethod: "khqr",
     });
 
     const expirationTimestamp = Date.now() + 5 * 60 * 1000;
@@ -129,6 +138,14 @@ const generatekhqr = async (req, res) => {
       qrExpiration: BigInt(expirationTimestamp),
       paymentMethod: "khqr",
       description: qrPayload.mode === "demo" ? "PAYCHAIN_DEMO" : null,
+    });
+
+    adminRealtimeService.publish("payment.qr_generated", {
+      orderId: updatedOrder.id,
+      userId,
+      mode: qrPayload.mode,
+      amount: Number(updatedOrder.total || 0),
+      status: updatedOrder.status,
     });
 
     return res.status(201).json({

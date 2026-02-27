@@ -1,5 +1,6 @@
 const axios = require("axios");
 const db = require("../model");
+const adminRealtimeService = require("../services/adminRealtimeService");
 
 const resolveUserId = (req) => String(req.params.id || req.user?.id || "");
 
@@ -171,6 +172,20 @@ const checkpayment = async (req, res) => {
         paidAt: new Date().toISOString(),
         status: "paid",
         transactionId: txHash || order.transactionId || order.qrMd5,
+      });
+
+      adminRealtimeService.publish("payment.confirmed", {
+        orderId: updatedOrder.id,
+        userId,
+        amount: Number(updatedOrder.total || 0),
+        status: updatedOrder.status,
+        paid: Boolean(updatedOrder.paid),
+      });
+
+      adminRealtimeService.publish("order.status_updated", {
+        orderId: updatedOrder.id,
+        status: updatedOrder.status,
+        paid: Boolean(updatedOrder.paid),
       });
 
       return res.status(200).json({

@@ -20,6 +20,7 @@ import { Dialog } from "@headlessui/react";
 import toast from "react-hot-toast";
 import userService from "../services/userService";
 import orderService from "../services/orderService";
+import { useAdminRealtimeRefresh } from "../hooks/useAdminRealtimeRefresh";
 import { formatCurrency, formatDate } from "../utils/formatters";
 
 const AUTO_REFRESH_INTERVAL = 15000;
@@ -86,6 +87,25 @@ const Customers = () => {
 
     return () => clearInterval(timer);
   }, [fetchCustomers, pagination.page]);
+
+  useAdminRealtimeRefresh(
+    useCallback(
+      (eventData) => {
+        const changeType = eventData?.changeType || "";
+        if (
+          !["auth.", "order.", "product.", "payment."].some((prefix) =>
+            changeType.startsWith(prefix),
+          )
+        ) {
+          return;
+        }
+
+        fetchCustomers(pagination.page, false);
+      },
+      [fetchCustomers, pagination.page],
+    ),
+    { debounceMs: 700 },
+  );
 
   // Fetch customer orders
   const fetchCustomerOrders = useCallback(async (customerId) => {

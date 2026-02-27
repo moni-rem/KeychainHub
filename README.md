@@ -70,7 +70,6 @@ DATABASE_URL="your_database_url"
 JWT_SECRET="your_secret_key"
 PORT=5000
 
-
 run prisma migration
 npx prisma migrate dev
 
@@ -79,6 +78,72 @@ npm start
 
 This project is licensed under the MIT License.
 
+Base URL: http://localhost:5001
 
+Public
 
+GET /
+GET /api/test
+GET /api/health
+GET /api/debug
+GET /api/check-auth
+POST /api/auth/register
+POST /api/auth/login
+POST /api/auth/logout
+User Protected (Bearer token)
 
+GET /api/auth/profile
+GET /api/products
+GET /api/products/featured
+GET /api/products/category/:category
+GET /api/products/:id
+PUT /api/products/:id
+DELETE /api/products/:id
+GET /api/cart
+GET /api/cart/count
+POST /api/cart
+POST /api/cart/merge
+PUT /api/cart/:itemId
+DELETE /api/cart/:itemId
+DELETE /api/cart
+POST /api/khqr/orders/generate_qrcode
+POST /api/khqr/orders/:id/generate_qrcode
+POST /api/khqr/orders/check_payment
+POST /api/khqr/orders/:id/check_payment
+Admin Protected (Bearer token + admin)
+
+POST /api/auth/make-admin (now secured)
+GET /api/auth/users
+POST /api/admin/login (public login)
+GET /api/admin/profile
+POST /api/admin/logout
+GET /api/admin/events
+GET /api/admin/dashboard
+GET /api/admin/users
+GET /api/admin/users/:id
+PUT /api/admin/users/:id
+DELETE /api/admin/users/:id
+GET /api/admin/products
+GET /api/admin/products/:id
+POST /api/admin/products
+PUT /api/admin/products/:id
+DELETE /api/admin/products/:id
+GET /api/admin/orders
+GET /api/admin/orders/stats
+PUT /api/admin/orders/:id/status
+GET /api/admin/system-stats
+GET /api/admin/analytics
+POST /api/admin/products/bulk-update
+POST /api/admin/users/bulk-email
+GET /api/admin/export
+GET /api/admin/health
+GET /api/users
+GET /api/users/stats
+GET /api/users/customers
+GET /api/users/search
+GET /api/users/:id
+PUT /api/users/:id
+DELETE /api/users/:id
+PUT /api/users/:id/role
+POST /api/users/:id/reset-password
+GET /api/users/:id/activity

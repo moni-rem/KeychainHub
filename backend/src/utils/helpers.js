@@ -27,31 +27,30 @@ const generateRandomString = (length = 10) => {
     .substring(2, length + 2);
 };
 
-// Paginate results
-const paginate = (data, page, limit) => {
-  const startIndex = (page - 1) * limit;
-  const endIndex = page * limit;
+// Paginate results using a consistent `{ data, pagination }` shape.
+// Keep legacy `results/total` keys for compatibility with older callers.
+const paginate = (data, page, limit, totalCount) => {
+  const safePage = Math.max(1, parseInt(page, 10) || 1);
+  const safeLimit = Math.max(1, parseInt(limit, 10) || 10);
+  const total =
+    Number.isFinite(totalCount) && totalCount >= 0
+      ? totalCount
+      : Array.isArray(data)
+        ? data.length
+        : 0;
+  const pages = Math.max(1, Math.ceil(total / safeLimit));
 
-  const results = {};
-
-  if (endIndex < data.length) {
-    results.next = {
-      page: page + 1,
-      limit: limit,
-    };
-  }
-
-  if (startIndex > 0) {
-    results.previous = {
-      page: page - 1,
-      limit: limit,
-    };
-  }
-
-  results.results = data.slice(startIndex, endIndex);
-  results.total = data.length;
-
-  return results;
+  return {
+    data,
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      pages,
+    },
+    results: data,
+    total,
+  };
 };
 
 module.exports = {
