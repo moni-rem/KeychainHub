@@ -1,0 +1,33 @@
+keychainhub/
+│
+├── backend/
+│   ├── src/
+│   │   ├── main.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── redis_client.py
+│   │   │
+│   │   ├── models/
+│   │   │   ├── user.py
+│   │   │   ├── product.py
+│   │   │   ├── refresh_token.py
+│   │   │
+│   │   ├── schemas/
+│   │   │   ├── auth.py
+│   │   │   ├── product.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── auth_service.py
+│   │   │   ├── email_service.py
+│   │   │   ├── stripe_service.py
+│   │   │
+│   │   ├── routers/
+│   │   │   ├── auth.py
+│   │   │   ├── products.py
+│   │
+│   ├── requirements.txt
+│   ├── Dockerfile
+│   ├── .env
+│
+├── docker-compose.yml
+└── README.md
